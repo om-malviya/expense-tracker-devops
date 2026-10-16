@@ -1,0 +1,94 @@
+$ cat security/trivy.yaml && echo && echo '===== Trivy gate steps in .github/workflows/ci-cd.yml =====' && sed -n '/--- Gate: HIGH/,/category: trivy-frontend/p' .github/workflows/ci-cd.yml
+# Trivy configuration for the image-scan gate.
+#   CI:     aquasecurity/trivy-action with `trivy-config: security/trivy.yaml` (+ `trivyignores: security/.trivyignore`)
+#   local:  trivy image --config security/trivy.yaml --ignorefile security/.trivyignore --exit-code 1 <image>
+#
+# Only HIGH and CRITICAL findings are reported, so the table in CI stays readable and the gate
+# fails only on what actually matters.
+severity:
+  - HIGH
+  - CRITICAL
+
+scan:
+  scanners:
+    - vuln # OS packages (Debian/Alpine) + application libraries (pip, npm)
+    - secret # anything that looks like a credential baked into a layer
+    - misconfig # Dockerfile best practices (root user, missing HEALTHCHECK, ...)
+
+vulnerability:
+  type:
+    - os
+    - library
+  # Fail only on CVEs that have a fixed package available. Unfixed CVEs in the base image
+  # (e.g. glibc issues Debian has not patched yet) would otherwise block every build with nothing
+  # I can do about it. NOTE: this key must live under `vulnerability:` - a top-level
+  # `ignore-unfixed:` is silently ignored by Trivy (learned the hard way: 44 HIGH, exit 1).
+  ignore-unfixed: true
+
+# The ignore list is passed explicitly (--ignorefile / trivyignores) rather than via an
+# `ignorefile:` key here, because a relative path in the config does not resolve reliably in CI.
+timeout: 10m
+
+===== Trivy gate steps in .github/workflows/ci-cd.yml =====
+      # --- Gate: HIGH/CRITICAL CVEs with a fix available fail the job (exit-code 1). ---
+      # ignore-unfixed lives under `vulnerability:` in security/trivy.yaml (a top-level key is
+      # silently ignored by Trivy). The ignore list is passed through the action input because a
+      # relative `ignorefile:` inside the config does not resolve reliably.
+      - name: "Trivy gate: backend image (HIGH/CRITICAL fixable CVEs fail the build)"
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: table
+          exit-code: "1"
+      - name: "Trivy gate: frontend image (HIGH/CRITICAL fixable CVEs fail the build)"
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: table
+          exit-code: "1"
+
+      # --- Reporting: same scans as SARIF (never blocking) so findings appear under Security > Code scanning ---
+      - name: Trivy SARIF report (backend)
+        if: ${{ !cancelled() }}
+        continue-on-error: true # reporting only; the gate above is what fails the build
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: sarif
+          output: trivy-backend.sarif
+          exit-code: "0"
+      - name: Upload backend SARIF
+        if: ${{ !cancelled() }}
+        continue-on-error: true # PRs from forks have no security-events permission
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-backend.sarif
+          category: trivy-backend
+      - name: Trivy SARIF report (frontend)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: sarif
+          output: trivy-frontend.sarif
+          exit-code: "0"
+      - name: Upload frontend SARIF
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend

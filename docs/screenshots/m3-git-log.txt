@@ -1,0 +1,36 @@
+$ git log --oneline --decorate && echo && git log --format='%h %an %ad %s' --date=short && echo && git shortlog -sn HEAD
+a9bc797 (HEAD -> main, origin/main) Add captured evidence for application, tests and Docker modules
+b878b66 Classify alembic as third-party for ruff and apply formatter
+ec416e2 Use placeholders in the documented connection-string example so the secret scanner does not match its own docs
+c1fbf1e Add GitHub Actions pipeline: tests, build, Trivy gate, GHCR push, Helm deploy
+fc5f8d7 Add troubleshooting lab manifests for broken image and broken service
+a06c6ca Add Prometheus ServiceMonitor, alert rules and Grafana dashboard
+fb2d036 Add Kubernetes namespace and Helm chart with Ingress, HPA and probes
+5ebca87 Add Terraform for AWS VPC and EKS cluster with managed node group
+14b749f Add load-test and evidence capture helper scripts
+3cd0268 Add Trivy, Gitleaks and Bandit configuration with security policy
+678dac3 Add Docker Compose stack for PostgreSQL, backend and frontend
+fa1a675 Add backend Dockerfile running migrations as a non-root user
+54f319f Add pytest suite with SQLite test database and 20 API tests
+8e95084 Add FastAPI expense API with SQLAlchemy model and Alembic migration
+7735b24 Add React dashboard frontend with Vite build and nginx runtime image
+0f147a8 Initialise repository with gitignore and project overview
+
+a9bc797 Om Malviya 2026-10-16 Add captured evidence for application, tests and Docker modules
+b878b66 Om Malviya 2026-10-16 Classify alembic as third-party for ruff and apply formatter
+ec416e2 Om Malviya 2026-10-16 Use placeholders in the documented connection-string example so the secret scanner does not match its own docs
+c1fbf1e Om Malviya 2026-10-16 Add GitHub Actions pipeline: tests, build, Trivy gate, GHCR push, Helm deploy
+fc5f8d7 Om Malviya 2026-10-16 Add troubleshooting lab manifests for broken image and broken service
+a06c6ca Om Malviya 2026-10-16 Add Prometheus ServiceMonitor, alert rules and Grafana dashboard
+fb2d036 Om Malviya 2026-10-16 Add Kubernetes namespace and Helm chart with Ingress, HPA and probes
+5ebca87 Om Malviya 2026-10-16 Add Terraform for AWS VPC and EKS cluster with managed node group
+14b749f Om Malviya 2026-10-16 Add load-test and evidence capture helper scripts
+3cd0268 Om Malviya 2026-10-16 Add Trivy, Gitleaks and Bandit configuration with security policy
+678dac3 Om Malviya 2026-10-16 Add Docker Compose stack for PostgreSQL, backend and frontend
+fa1a675 Om Malviya 2026-10-16 Add backend Dockerfile running migrations as a non-root user
+54f319f Om Malviya 2026-10-16 Add pytest suite with SQLite test database and 20 API tests
+8e95084 Om Malviya 2026-10-16 Add FastAPI expense API with SQLAlchemy model and Alembic migration
+7735b24 Om Malviya 2026-10-16 Add React dashboard frontend with Vite build and nginx runtime image
+0f147a8 Om Malviya 2026-10-16 Initialise repository with gitignore and project overview
+
+    16	Om Malviya

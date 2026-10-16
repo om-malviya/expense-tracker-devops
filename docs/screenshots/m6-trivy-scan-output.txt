@@ -1,0 +1,124 @@
+$ gh run view 38919569372 -R om-malviya/expense-tracker-devops --log | awk -F'\t' '$2 ~ /^Trivy gate|^Upload (backend|frontend) SARIF/' | grep -E 'image-ref:|exit-code:|trivy-config:|trivyignores:|Vulnerability scanning|Secret scanning is|Misconfiguration scanning|Detected OS|Detecting vulnerabilities|Number of language|Report Summary|│|┌|├|└|Legend|Not scanned|Clean \(|sarif_file:|category:|Successfully uploaded|Analysis upload status' | perl -ne 'if (s/^[^\t]*\t([^\t]*)\t\S+ //) { print "\n=== $1 ===\n" if $1 ne $prev; $prev = $1; print }'
+
+=== Trivy gate: backend image (HIGH/CRITICAL fixable CVEs fail the build) ===
+  image-ref: ghcr.io/om-malviya/expense-tracker-backend:ec416e2b29d120f323c1e0da197c9bed2692f9a9
+  trivy-config: security/trivy.yaml
+  trivyignores: security/.trivyignore
+  exit-code: 1
+2026-10-16T14:55:39Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-10-16T14:55:39Z	INFO	[misconfig] Misconfiguration scanning is enabled
+234.57 KiB / 234.57 KiB [------------------------------------------------------] 100.00% ? p/s 100ms2026-10-16T14:55:41Z	INFO	[secret] Secret scanning is enabled
+2026-10-16T14:55:46Z	INFO	Detected OS	family="debian" version="13.7"
+2026-10-16T14:55:46Z	INFO	[debian] Detecting vulnerabilities...	os_version="13" pkg_num=87
+2026-10-16T14:55:46Z	INFO	Number of language-specific files	num=1
+2026-10-16T14:55:46Z	INFO	[python-pkg] Detecting vulnerabilities...
+Report Summary
+┌──────────────────────────────────────────────────────────────────────────────────┬────────────┬─────────────────┬─────────┬───────────────────┐
+│                                      Target                                      │    Type    │ Vulnerabilities │ Secrets │ Misconfigurations │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ ghcr.io/om-malviya/expense-tracker-backend:ec416e2b29d120f323c1e0da197c9bed2692- │   debian   │        0        │    -    │         -         │
+│ f9a9 (debian 13.7)                                                               │            │                 │         │                   │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/alembic-1.20.0.dist-info/METADATA         │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/annotated_doc-0.0.5.dist-info/METADATA    │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/annotated_types-0.8.0.dist-info/METADATA  │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/anyio-4.15.1.dist-info/METADATA           │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/click-8.5.0.dist-info/METADATA            │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/fastapi-0.142.2.dist-info/METADATA        │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/greenlet-3.5.6.dist-info/METADATA         │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/h11-0.16.0.dist-info/METADATA             │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/httptools-0.9.0.dist-info/METADATA        │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/idna-3.20.dist-info/METADATA              │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/mako-1.4.3.dist-info/METADATA             │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/markupsafe-3.0.4.dist-info/METADATA       │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/opentelemetry_api-1.45.1.dist-info/METAD- │ python-pkg │        0        │    -    │         -         │
+│ ATA                                                                              │            │                 │         │                   │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/prometheus_client-0.26.0.dist-info/METAD- │ python-pkg │        0        │    -    │         -         │
+│ ATA                                                                              │            │                 │         │                   │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/prometheus_fastapi_instrumentator-8.1.0.- │ python-pkg │        0        │    -    │         -         │
+│ dist-info/METADATA                                                               │            │                 │         │                   │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/psycopg-3.3.6.dist-info/METADATA          │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/psycopg_binary-3.3.6.dist-info/METADATA   │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/pydantic-2.14.1.dist-info/METADATA        │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/pydantic_core-2.50.1.dist-info/METADATA   │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/pydantic_settings-2.15.0.dist-info/METAD- │ python-pkg │        0        │    -    │         -         │
+│ ATA                                                                              │            │                 │         │                   │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/python_dotenv-1.2.4.dist-info/METADATA    │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/pyyaml-6.0.3.dist-info/METADATA           │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/sqlalchemy-2.0.54.dist-info/METADATA      │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/starlette-1.8.0.dist-info/METADATA        │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/typing_extensions-4.16.0.dist-info/METAD- │ python-pkg │        0        │    -    │         -         │
+│ ATA                                                                              │            │                 │         │                   │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/typing_inspection-0.4.4.dist-info/METADA- │ python-pkg │        0        │    -    │         -         │
+│ TA                                                                               │            │                 │         │                   │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/uvicorn-0.54.0.dist-info/METADATA         │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/uvloop-0.23.0.dist-info/METADATA          │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/watchfiles-1.3.0.dist-info/METADATA       │ python-pkg │        0        │    -    │         -         │
+├──────────────────────────────────────────────────────────────────────────────────┼────────────┼─────────────────┼─────────┼───────────────────┤
+│ usr/local/lib/python3.12/site-packages/websockets-17.2.dist-info/METADATA        │ python-pkg │        0        │    -    │         -         │
+└──────────────────────────────────────────────────────────────────────────────────┴────────────┴─────────────────┴─────────┴───────────────────┘
+Legend:
+- '-': Not scanned
+- '0': Clean (no security findings detected)
+
+=== Trivy gate: frontend image (HIGH/CRITICAL fixable CVEs fail the build) ===
+  image-ref: ghcr.io/om-malviya/expense-tracker-frontend:ec416e2b29d120f323c1e0da197c9bed2692f9a9
+  trivy-config: security/trivy.yaml
+  trivyignores: security/.trivyignore
+  exit-code: 1
+2026-10-16T14:55:48Z	INFO	[vuln] Vulnerability scanning is enabled
+2026-10-16T14:55:48Z	INFO	[misconfig] Misconfiguration scanning is enabled
+2026-10-16T14:55:49Z	INFO	[secret] Secret scanning is enabled
+2026-10-16T14:55:50Z	INFO	Detected OS	family="alpine" version="3.24.2"
+2026-10-16T14:55:50Z	INFO	[alpine] Detecting vulnerabilities...	os_version="3.24" repository="3.24" pkg_num=70
+2026-10-16T14:55:50Z	INFO	Number of language-specific files	num=0
+Report Summary
+┌──────────────────────────────────────────────────────────────────────────────────┬────────┬─────────────────┬─────────┬───────────────────┐
+│                                      Target                                      │  Type  │ Vulnerabilities │ Secrets │ Misconfigurations │
+├──────────────────────────────────────────────────────────────────────────────────┼────────┼─────────────────┼─────────┼───────────────────┤
+│ ghcr.io/om-malviya/expense-tracker-frontend:ec416e2b29d120f323c1e0da197c9bed269- │ alpine │        0        │    -    │         -         │
+│ 2f9a9 (alpine 3.24.2)                                                            │        │                 │         │                   │
+└──────────────────────────────────────────────────────────────────────────────────┴────────┴─────────────────┴─────────┴───────────────────┘
+Legend:
+- '-': Not scanned
+- '0': Clean (no security findings detected)
+
+=== Upload backend SARIF ===
+  sarif_file: trivy-backend.sarif
+  category: trivy-backend
+Successfully uploaded results
+Analysis upload status is complete.
+
+=== Upload frontend SARIF ===
+  sarif_file: trivy-frontend.sarif
+  category: trivy-frontend
+Successfully uploaded results
+Analysis upload status is complete.

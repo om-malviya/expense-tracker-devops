@@ -1,0 +1,83 @@
+$ grep -n 'name:\|on:\|push:\|branches\|needs:\|uses: aquasecurity\|exit-code\|docker push\|github.sha' .github/workflows/ci-cd.yml
+1:name: Expense Tracker CI/CD
+3:# Pipeline order (each arrow is a `needs:` edge, so a red job stops everything after it):
+15:# * Trivy runs on BOTH images with exit-code 1 on HIGH/CRITICAL (fixable) CVEs, so a vulnerable
+20:on:
+21:  push:
+22:    branches: [main]
+24:    branches: [main]
+43:    name: Backend lint + pytest
+44:    runs-on: ubuntu-latest
+52:          python-version: ${{ env.PYTHON_VERSION }}
+55:      - name: Install dependencies
+60:      - name: Lint (ruff)
+62:      - name: Run tests (SQLite test DB, see tests/conftest.py)
+64:      - name: Upload pytest report
+68:          name: pytest-report
+73:    name: Frontend build + npm audit
+74:    runs-on: ubuntu-latest
+82:          node-version: ${{ env.NODE_VERSION }}
+83:      - name: Install (npm ci = exact versions from package-lock.json)
+85:      - name: Build production bundle
+87:      - name: npm audit (fails on HIGH/CRITICAL advisories)
+89:      - name: Upload dist
+92:          name: frontend-dist
+97:    name: Security (bandit + pip-audit + gitleaks)
+98:    runs-on: ubuntu-latest
+105:          python-version: ${{ env.PYTHON_VERSION }}
+106:      - name: Install scanners (same pins as backend/requirements-dev.txt)
+108:      - name: Bandit (Python SAST)
+110:      - name: pip-audit (SCA, fails on any known vulnerability)
+112:      - name: Gitleaks (secret scan)
+120:  build-scan-push:
+121:    name: Docker build + Trivy gate + push to GHCR
+122:    needs: [backend-test, frontend-build, security-static]
+123:    runs-on: ubuntu-latest
+132:      - name: Build backend image
+133:        run: docker build --pull -t "$BACKEND_IMAGE:${{ github.sha }}" ./backend
+134:      - name: Build frontend image
+135:        run: docker build --pull -t "$FRONTEND_IMAGE:${{ github.sha }}" ./frontend
+137:      # --- Gate: HIGH/CRITICAL CVEs with a fix available fail the job (exit-code 1). ---
+141:      - name: "Trivy gate: backend image (HIGH/CRITICAL fixable CVEs fail the build)"
+142:        uses: aquasecurity/trivy-action@v0.36.0
+144:          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+145:          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+149:          exit-code: "1"
+150:      - name: "Trivy gate: frontend image (HIGH/CRITICAL fixable CVEs fail the build)"
+151:        uses: aquasecurity/trivy-action@v0.36.0
+153:          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+154:          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+158:          exit-code: "1"
+161:      - name: Trivy SARIF report (backend)
+164:        uses: aquasecurity/trivy-action@v0.36.0
+166:          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+167:          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+172:          exit-code: "0"
+173:      - name: Upload backend SARIF
+180:      - name: Trivy SARIF report (frontend)
+183:        uses: aquasecurity/trivy-action@v0.36.0
+185:          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+186:          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+191:          exit-code: "0"
+192:      - name: Upload frontend SARIF
+201:      - name: Login to GHCR
+206:          username: ${{ github.actor }}
+208:      - name: Push images tagged with the commit SHA
+211:          docker push "$BACKEND_IMAGE:${{ github.sha }}"
+212:          docker push "$FRONTEND_IMAGE:${{ github.sha }}"
+213:      - name: Also tag + push :latest (push to main only)
+216:          docker tag "$BACKEND_IMAGE:${{ github.sha }}"  "$BACKEND_IMAGE:latest"
+217:          docker tag "$FRONTEND_IMAGE:${{ github.sha }}" "$FRONTEND_IMAGE:latest"
+218:          docker push "$BACKEND_IMAGE:latest"
+219:          docker push "$FRONTEND_IMAGE:latest"
+220:      - name: Print pushed image digests
+224:          for ref in "$BACKEND_IMAGE:${{ github.sha }}" "$FRONTEND_IMAGE:${{ github.sha }}"; do
+232:    name: Helm deploy
+233:    needs: build-scan-push
+235:    runs-on: ubuntu-latest
+245:        --set backend.image.tag=${{ github.sha }}
+246:        --set frontend.image.tag=${{ github.sha }}
+251:      - name: helm lint
+255:      - name: Skip notice (no KUBE_CONFIG_DATA secret configured)
+260:      - name: Write kubeconfig from secret
+268:      - name: helm upgrade --install

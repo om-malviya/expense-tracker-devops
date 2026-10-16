@@ -93,22 +93,19 @@ Trivy scanned the two images built by the pipeline from this commit - `ghcr.io/o
 `ghcr.io/om-malviya/expense-tracker-frontend` (nginx-unprivileged on Alpine: OS packages plus the
 static bundle) - for known CVEs rated HIGH or CRITICAL, embedded secrets and Dockerfile misconfiguration.
 
-<!-- TODO-EVIDENCE: replace the paragraph below with the real outcome of the pipeline run, then delete
-     this comment. Keep it to 2-3 sentences. Templates:
+**Result:** Both images came back clean in run
+[38919569372](https://github.com/om-malviya/expense-tracker-devops/actions/runs/38919569372) (commit
+`ec416e2b29d120f323c1e0da197c9bed2692f9a9`): Trivy detected `debian 13.7` (87 OS packages) plus the 30
+Python packages under `site-packages` in the backend image and `alpine 3.24.2` (70 OS packages) in the
+frontend image, and every target in the Report Summary shows `0` vulnerabilities with no secret or
+misconfiguration findings, so both gate steps exited 0 and the `docker push` steps that follow them in the
+same job ran. "Clean" means no CVE with a fixed package available at scan time (2026-10-16):
+`vulnerability.ignore-unfixed: true` drops the Debian/Alpine advisories that have no patch yet, and because
+the trivy-action exported its default severity list the scan was in fact evaluated at every severity, not
+only HIGH/CRITICAL, so the gate held with margin. The gate matters because a HIGH/CRITICAL fixable CVE
+makes the step exit 1, the job goes red and nothing reaches GHCR; it re-runs on every push, so a CVE
+published tomorrow is caught on the next build instead of shipping silently.
 
-     Clean result:
-       The scan reported 0 HIGH/CRITICAL vulnerabilities in both images (run <ACTIONS_RUN_URL>,
-       commit <SHA>), so both passed the gate and were pushed to GHCR. "Clean" here means no
-       vulnerability with a fix available at the time of the scan; the base images were refreshed
-       on <DATE> and the gate will re-run on the next push, so a newly published CVE is caught on the
-       next build rather than silently shipping.
-
-     One finding:
-       The backend image reported <CVE-ID> (<SEVERITY>) in <package> <version>: <one-line description
-       of the weakness>. It is reachable/not reachable because <reason>. The fix was <bumping the base
-       image to X / upgrading package to Y>, after which the re-run scan was clean and the image was
-       pushed. -->
-
-**Result:** TODO-EVIDENCE - fill in after the first green run (see the comment above for the template).
-
-Screenshot of the Trivy table from the pipeline run: `docs/screenshots/trivy-scan.png` (TODO-EVIDENCE).
+Evidence from the pipeline run: `docs/screenshots/m6-trivy-scan-output.png` (the two Report Summary
+tables and the SARIF uploads) and `docs/screenshots/m6-trivy-config.png` (`security/trivy.yaml` plus the
+gate steps from the workflow).

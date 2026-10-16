@@ -1,0 +1,52 @@
+$ cat .gitignore && echo && echo '# proof that secrets, caches, venvs and node_modules are ignored (pattern -> path):' && git check-ignore -v backend/.env backend/app/__pycache__/main.cpython-312.pyc backend/.venv/bin/python frontend/node_modules/react/index.js frontend/dist/index.html terraform/terraform.tfstate
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+coverage.xml
+reports/
+htmlcov/
+*.egg-info/
+
+# Node / Vite
+node_modules/
+frontend/dist/
+npm-debug.log*
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+*.tfplan
+crash.log
+terraform.tfvars
+
+# Helm
+*.tgz
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local evidence scratch (rendered copies live in docs/screenshots/)
+/evidence-tmp/
+
+# proof that secrets, caches, venvs and node_modules are ignored (pattern -> path):
+.gitignore:2:.env	backend/.env
+.gitignore:9:__pycache__/	backend/app/__pycache__/main.cpython-312.pyc
+.gitignore:11:.venv/	backend/.venv/bin/python
+.gitignore:21:node_modules/	frontend/node_modules/react/index.js
+.gitignore:22:frontend/dist/	frontend/dist/index.html
+terraform/.gitignore:5:*.tfstate	terraform/terraform.tfstate

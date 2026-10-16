@@ -1,0 +1,42 @@
+$ gh run view 38919569372 -R om-malviya/expense-tracker-devops | sed -n '1,/^ANNOTATIONS/p' | sed '$d'; echo '== gh run list --limit 5 (run #1 failed on Gitleaks - fixed in ec416e2, run #2 green) =='; gh run list -R om-malviya/expense-tracker-devops --limit 5; echo; echo '== key lines from: gh run view 38919569372 --log (Trivy tables: see m6-trivy-scan-output) =='; gh run view 38919569372 -R om-malviya/expense-tracker-devops --log | grep -E 'passed in|All checks passed|found 0 vulnerabilities|No issues identified|Total lines of code|No known vulnerabilities|commits scanned|no leaks found|Detected OS|Successfully uploaded results|: digest: sha256|-> ghcr.io/.*@sha256|chart\(s\) linted|##\[notice\]' | perl -pe 's/(\e|\^\[)\[[0-9;]*m//g; s/^[^\t]*\t([^\t]*)\t\S+ /[$1] /; s/\[Trivy gate: (\w+) image[^\]]*\]/[Trivy gate: $1]/; s/\[Run tests \(SQLite[^\]]*\]/[pytest]/'
+
+✓ main Expense Tracker CI/CD · 38919569372
+Triggered via push about 13 minutes ago
+
+JOBS
+✓ Frontend build + npm audit in 8s (ID 117035678979)
+✓ Backend lint + pytest in 21s (ID 117035679251)
+✓ Security (bandit + pip-audit + gitleaks) in 23s (ID 117035679641)
+✓ Docker build + Trivy gate + push to GHCR in 1m43s (ID 117035879814)
+✓ Helm deploy in 5s (ID 117036718058)
+
+== gh run list --limit 5 (run #1 failed on Gitleaks - fixed in ec416e2, run #2 green) ==
+in_progress		Add offline Terraform plan evidence using a local AWS emulator	Expense Tracker CI/CD	main	push	38921397893	8s	2026-10-16T15:07:46Z
+completed	success	Add captured evidence for application, tests and Docker modules	Expense Tracker CI/CD	main	push	38920035198	2m45s	2026-10-16T14:57:51Z
+completed	success	Use placeholders in the documented connection-string example so the s…	Expense Tracker CI/CD	main	push	38919569372	2m21s	2026-10-16T14:54:25Z
+completed	failure	Add GitHub Actions pipeline: tests, build, Trivy gate, GHCR push, Hel…	Expense Tracker CI/CD	main	push	38919310984	29s	2026-10-16T14:52:32Z
+
+== key lines from: gh run view 38919569372 --log (Trivy tables: see m6-trivy-scan-output) ==
+[npm audit (fails on HIGH/CRITICAL advisories)] found 0 vulnerabilities
+[Lint (ruff)] All checks passed!
+[pytest] ============================== 20 passed in 0.26s ==============================
+[Bandit (Python SAST)] 	No issues identified.
+[Bandit (Python SAST)] 	Total lines of code: 287
+[pip-audit (SCA, fails on any known vulnerability)] No known vulnerabilities found
+[Gitleaks (secret scan)] 2:54PM INF 1 commits scanned.
+[Gitleaks (secret scan)] 2:54PM INF no leaks found
+[Trivy gate: backend] 2026-10-16T14:55:46Z	INFO	Detected OS	family="debian" version="13.7"
+[Trivy gate: frontend] 2026-10-16T14:55:50Z	INFO	Detected OS	family="alpine" version="3.24.2"
+[Trivy SARIF report (backend)] 2026-10-16T14:55:52Z	INFO	Detected OS	family="debian" version="13.7"
+[Upload backend SARIF] Successfully uploaded results
+[Trivy SARIF report (frontend)] 2026-10-16T14:56:02Z	INFO	Detected OS	family="alpine" version="3.24.2"
+[Upload frontend SARIF] Successfully uploaded results
+[Push images tagged with the commit SHA] ec416e2b29d120f323c1e0da197c9bed2692f9a9: digest: sha256:f5f298bbf47ac55fd8a04f92335fbbc38095f870647bbcd74fc38fc0fff7f521 size: 2615
+[Push images tagged with the commit SHA] ec416e2b29d120f323c1e0da197c9bed2692f9a9: digest: sha256:d23e27a8c88a5ce92f7509c61cd4556b1e927a84d8c75b20297adcc8ab14264a size: 2614
+[Also tag + push :latest (push to main only)] latest: digest: sha256:f5f298bbf47ac55fd8a04f92335fbbc38095f870647bbcd74fc38fc0fff7f521 size: 2615
+[Also tag + push :latest (push to main only)] latest: digest: sha256:d23e27a8c88a5ce92f7509c61cd4556b1e927a84d8c75b20297adcc8ab14264a size: 2614
+[Print pushed image digests] ghcr.io/om-malviya/expense-tracker-backend:ec416e2b29d120f323c1e0da197c9bed2692f9a9 -> ghcr.io/om-malviya/expense-tracker-backend@sha256:f5f298bbf47ac55fd8a04f92335fbbc38095f870647bbcd74fc38fc0fff7f521
+[Print pushed image digests] ghcr.io/om-malviya/expense-tracker-frontend:ec416e2b29d120f323c1e0da197c9bed2692f9a9 -> ghcr.io/om-malviya/expense-tracker-frontend@sha256:d23e27a8c88a5ce92f7509c61cd4556b1e927a84d8c75b20297adcc8ab14264a
+[helm lint] 1 chart(s) linted, 0 chart(s) failed
+[helm lint] 1 chart(s) linted, 0 chart(s) failed
+[Skip notice (no KUBE_CONFIG_DATA secret configured)] ##[notice]KUBE_CONFIG_DATA secret is not set; the cluster is deployed manually with:

@@ -1,0 +1,22 @@
+$ for repo in expense-tracker-backend expense-tracker-frontend; do echo "== ghcr.io/om-malviya/$repo"; TOKEN=$(curl -s "https://ghcr.io/token?scope=repository:om-malviya/$repo:pull" | python3 -c "import sys,json;print(json.load(sys.stdin)[\"token\"])"); curl -s -H "Authorization: Bearer $TOKEN" "https://ghcr.io/v2/om-malviya/$repo/tags/list" | python3 -m json.tool; echo; done; echo "# SHA tags = full git commit SHA (ec416e2b... = run 38919569372); latest = alias moved on every push to main"
+== ghcr.io/om-malviya/expense-tracker-backend
+{
+    "name": "om-malviya/expense-tracker-backend",
+    "tags": [
+        "ec416e2b29d120f323c1e0da197c9bed2692f9a9",
+        "latest",
+        "a9bc797fa227f85b4fca756b3d27259e02f786e3"
+    ]
+}
+
+== ghcr.io/om-malviya/expense-tracker-frontend
+{
+    "name": "om-malviya/expense-tracker-frontend",
+    "tags": [
+        "ec416e2b29d120f323c1e0da197c9bed2692f9a9",
+        "latest",
+        "a9bc797fa227f85b4fca756b3d27259e02f786e3"
+    ]
+}
+
+# SHA tags = full git commit SHA (ec416e2b... = run 38919569372); latest = alias moved on every push to main

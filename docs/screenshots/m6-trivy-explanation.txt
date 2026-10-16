@@ -1,0 +1,21 @@
+M6 - what Trivy scanned and what the result means (run 38919569372, commit ec416e2b29d120f323c1e0da197c9bed2692f9a9)
+
+Trivy scanned the two images the pipeline built from this commit - ghcr.io/om-malviya/expense-tracker-backend
+(Python 3.12 slim on Debian: OS packages plus every library in requirements.txt) and
+ghcr.io/om-malviya/expense-tracker-frontend (nginx-unprivileged on Alpine: OS packages plus the static
+bundle) - for known CVEs rated HIGH or CRITICAL, embedded secrets and Dockerfile misconfiguration.
+
+Result: Both images came back clean in run https://github.com/om-malviya/expense-tracker-devops/actions/runs/38919569372
+(commit ec416e2b29d120f323c1e0da197c9bed2692f9a9): Trivy detected debian 13.7 (87 OS packages) plus the 30
+Python packages under site-packages in the backend image and alpine 3.24.2 (70 OS packages) in the frontend
+image, and every target in the Report Summary shows 0 vulnerabilities with no secret or misconfiguration
+findings, so both gate steps exited 0 and the docker push steps that follow them in the same job ran.
+"Clean" means no CVE with a fixed package available at scan time (2026-10-16): vulnerability.ignore-unfixed:
+true drops the Debian/Alpine advisories that have no patch yet, and because the trivy-action exported its
+default severity list the scan was in fact evaluated at every severity, not only HIGH/CRITICAL, so the gate
+held with margin. The gate matters because a HIGH/CRITICAL fixable CVE makes the step exit 1, the job goes
+red and nothing reaches GHCR; it re-runs on every push, so a CVE published tomorrow is caught on the next
+build instead of shipping silently.
+
+Evidence: docs/screenshots/m6-trivy-scan-output.png (Report Summary tables + SARIF uploads),
+docs/screenshots/m6-trivy-config.png (security/trivy.yaml + the gate steps from .github/workflows/ci-cd.yml).
