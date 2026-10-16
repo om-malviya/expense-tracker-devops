@@ -49,8 +49,10 @@ grafana:
       searchNamespace: ALL         # grafana-dashboard-configmap.yaml lives in `monitoring`, the app in `expense-tracker`
       folder: /tmp/dashboards
   resources:
-    requests: {cpu: 50m, memory: 128Mi}
-    limits: {cpu: 300m, memory: 256Mi}
+    # Grafana 12+/13 idles around 250Mi once the search index and dashboards are loaded; with a
+    # 256Mi limit it was OOMKilled on every dashboard render, so the limit has real headroom now.
+    requests: {cpu: 50m, memory: 256Mi}
+    limits: {cpu: 300m, memory: 512Mi}
   service:
     type: ClusterIP                # I port-forward instead of exposing Grafana publicly
   ingress:
