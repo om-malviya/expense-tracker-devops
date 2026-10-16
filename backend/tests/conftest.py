@@ -4,6 +4,7 @@ The suite must never touch the real PostgreSQL database, so before `app` is impo
 DATABASE_URL at a throw-away SQLite file and set APP_ENV=test (which makes the lifespan hook
 create the tables). Settings are read at import time, hence the env vars come first.
 """
+
 import os
 import tempfile
 

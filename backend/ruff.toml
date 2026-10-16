@@ -6,3 +6,8 @@ exclude = ["alembic/versions/*"]
 select = ["E", "F", "W", "I", "B", "UP"]
 # B008: `Depends(get_db)` as an argument default is the idiomatic FastAPI dependency-injection pattern.
 ignore = ["B008"]
+
+[lint.isort]
+# backend/alembic/ (the migration environment) sits next to the sources, so ruff would otherwise
+# guess that the `alembic` *package* is first-party and demand it be grouped with `app` imports.
+known-third-party = ["alembic"]

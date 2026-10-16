@@ -3,6 +3,7 @@
 They run against a temporary SQLite database (see conftest.py) and cover every endpoint:
 /, /health, /ready, /metrics and the full CRUD + summary surface under /api/expenses.
 """
+
 from datetime import date
 from decimal import ROUND_HALF_UP, Decimal
 

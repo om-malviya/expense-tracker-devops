@@ -4,6 +4,7 @@ The database URL is taken from the DATABASE_URL environment variable (via the sa
 pydantic-settings object the API uses), so the container entrypoint `alembic upgrade head`
 migrates whatever database the Kubernetes Secret / Compose file points at.
 """
+
 import os
 from logging.config import fileConfig
 
