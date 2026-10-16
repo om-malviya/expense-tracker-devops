@@ -1,0 +1,8 @@
+# Test and quality tooling used locally and by the CI pipeline. Never installed in the image.
+pytest==9.1.1
+pytest-cov==7.1.0
+# starlette >= 1.7 drives TestClient with httpx2 (plain httpx only triggers a deprecation warning).
+httpx2==2.13.1
+ruff==0.17.1
+bandit==1.9.4
+pip-audit==2.10.1
