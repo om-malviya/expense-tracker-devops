@@ -1,0 +1,32 @@
+Expense Tracker {{ .Chart.AppVersion }} deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Watch the rollout (the backend waits for Postgres, then runs the Alembic migration):
+  kubectl -n {{ .Release.Namespace }} get pods,svc,ingress,hpa,pvc -l app.kubernetes.io/instance={{ .Release.Name }}
+  kubectl -n {{ .Release.Namespace }} rollout status deployment/{{ include "expense-tracker.fullname" . }}-backend
+
+{{- if .Values.ingress.enabled }}
+
+Open the app (add "<ingress-address> {{ .Values.ingress.host }}" to /etc/hosts; 127.0.0.1 on k3s):
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}/                     (UI)
+  http{{ if .Values.ingress.tls }}s{{ end }}://{{ .Values.ingress.host }}/api/expenses/summary (API through the ingress)
+{{- else }}
+
+No ingress enabled. Port-forward instead:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "expense-tracker.fullname" . }}-frontend 3000:{{ .Values.frontend.servicePort }}
+  open http://localhost:3000
+{{- end }}
+
+{{- if .Values.serviceMonitor.enabled }}
+
+Metrics: a ServiceMonitor was created; the backend should appear as UP under Status > Targets in Prometheus.
+{{- else }}
+
+Metrics: serviceMonitor.enabled=false. Install kube-prometheus-stack (see monitoring/README.md) and
+re-run with --set serviceMonitor.enabled=true, or apply monitoring/servicemonitor.yaml.
+{{- end }}
+
+{{- if and .Values.postgres.enabled (not .Values.postgres.existingSecret) }}
+
+WARNING: the database password comes from values.yaml (postgres.password). Fine for a local cluster;
+for anything shared set postgres.existingSecret to a Secret created outside Helm.
+{{- end }}

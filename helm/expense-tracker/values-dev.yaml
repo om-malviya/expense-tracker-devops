@@ -1,0 +1,35 @@
+# Local k3s / kind: Traefik ingress class, latest images, small resources,
+# ServiceMonitor on (kube-prometheus-stack is installed from monitoring/ first).
+#   helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml
+backend:
+  image:
+    tag: latest
+  resources:
+    requests: {cpu: 50m, memory: 96Mi}
+    limits: {cpu: 300m, memory: 256Mi}
+frontend:
+  image:
+    tag: latest
+  resources:
+    requests: {cpu: 25m, memory: 32Mi}
+    limits: {cpu: 100m, memory: 64Mi}
+config:
+  appEnv: dev
+  logLevel: debug
+  corsOrigins: "http://expense.local,http://localhost:5173,http://localhost:3000"
+postgres:
+  persistence:
+    size: 1Gi
+  resources:
+    requests: {cpu: 50m, memory: 96Mi}
+    limits: {cpu: 300m, memory: 256Mi}
+ingress:
+  enabled: true
+  className: traefik       # k3s default ingress controller
+  host: expense.local
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 4
+serviceMonitor:
+  enabled: true

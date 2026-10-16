@@ -1,0 +1,17 @@
+# The one object I create outside Helm. Everything else (ConfigMap, Secret,
+# Postgres, backend, frontend, Ingress, HPA) is rendered by helm/expense-tracker
+# into this namespace, so deleting the namespace is a clean "reset everything".
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: expense-tracker
+  labels:
+    app.kubernetes.io/name: expense-tracker
+    app.kubernetes.io/part-of: expense-tracker
+    # Pod Security Admission: every pod in here must satisfy the "restricted"
+    # profile (non-root, no privilege escalation, all capabilities dropped).
+    # The chart's securityContexts were written to pass this, so turning it on
+    # is a free regression test for the hardening.
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted

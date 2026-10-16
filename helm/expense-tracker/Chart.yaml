@@ -1,0 +1,14 @@
+apiVersion: v2
+name: expense-tracker
+description: Expense Tracker - FastAPI + PostgreSQL API with an nginx-served web UI for logging and summarising personal spending (DevOps capstone, Om Malviya)
+type: application
+# version = chart packaging version (bumped when templates/values change);
+# appVersion = the application release the default image tag points at.
+version: 1.0.0
+appVersion: "1.0.0"
+kubeVersion: ">=1.27.0-0"
+keywords: [expense-tracker, fastapi, postgres, nginx]
+maintainers:
+  - name: Om Malviya
+sources:
+  - https://github.com/om-malviya/expense-tracker-devops

@@ -1,0 +1,142 @@
+# Default values for the expense-tracker chart.
+# Environment overrides live in values-dev.yaml (k3s / kind) and values-prod.yaml (EKS).
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  pullPolicy: IfNotPresent
+  pullSecrets: []           # e.g. [{name: ghcr-pull-secret}] when the GHCR packages are private
+
+# ---------------------------------------------------------------------------
+# Backend - FastAPI / uvicorn on :8000, runs `alembic upgrade head` on start
+# ---------------------------------------------------------------------------
+backend:
+  image:
+    repository: ghcr.io/om-malviya/expense-tracker-backend
+    tag: ""                 # "" = Chart.appVersion; CI overrides with --set backend.image.tag=<git sha>
+  replicaCount: 2           # ignored while hpa.enabled=true (the HPA owns the replica count)
+  port: 8000
+  resources:
+    # requests are what the HPA percentage is measured against, so they must be set
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  probes:
+    # startup: /health (no DB) with a generous threshold so the Alembic migration can finish
+    # readiness: /ready runs SELECT 1 - a pod with a broken DB connection is pulled from the Service
+    # liveness: /health only - I never want a DB outage to make kubelet restart healthy app pods
+    startup:   {path: /health, periodSeconds: 5,  failureThreshold: 24}
+    readiness: {path: /ready,  periodSeconds: 10, failureThreshold: 3}
+    liveness:  {path: /health, periodSeconds: 15, failureThreshold: 3}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 10001        # the `appuser` created in backend/Dockerfile
+    seccompProfile: {type: RuntimeDefault}
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true   # the app writes nothing to disk (PYTHONDONTWRITEBYTECODE=1)
+    capabilities: {drop: ["ALL"]}
+
+# ---------------------------------------------------------------------------
+# Frontend - static UI served by nginx-unprivileged on :8080, proxies /api/ to the backend
+# ---------------------------------------------------------------------------
+frontend:
+  image:
+    repository: ghcr.io/om-malviya/expense-tracker-frontend
+    tag: ""
+  replicaCount: 2
+  port: 8080                # nginx-unprivileged cannot bind 80 without CAP_NET_BIND_SERVICE
+  servicePort: 80           # the Service still exposes the conventional port 80
+  resources:
+    requests: {cpu: 50m, memory: 32Mi}
+    limits: {cpu: 200m, memory: 128Mi}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101          # uid of `nginx` in nginxinc/nginx-unprivileged
+    seccompProfile: {type: RuntimeDefault}
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true   # /tmp and /etc/nginx/conf.d are emptyDir volumes (see frontend-deployment.yaml)
+    capabilities: {drop: ["ALL"]}
+
+# ---------------------------------------------------------------------------
+# Non-sensitive configuration -> ConfigMap (envFrom on the backend)
+# ---------------------------------------------------------------------------
+config:
+  appName: "Expense Tracker API"
+  appEnv: "kubernetes"
+  logLevel: "info"
+  # Browser origins allowed by the API (comma-separated). Traffic that goes through the
+  # frontend nginx proxy is same-origin and never needs CORS; this is for a UI served
+  # from somewhere else (e.g. the Vite dev server) talking to the cluster API directly.
+  corsOrigins: "http://expense.local"
+
+# ---------------------------------------------------------------------------
+# PostgreSQL - single-replica StatefulSet with a PVC. Set enabled=false to use
+# an external database (RDS) through externalDatabaseUrl / existingSecret.
+# ---------------------------------------------------------------------------
+postgres:
+  enabled: true
+  image: postgres:16-alpine
+  database: expenses
+  username: expenses
+  # FAKE placeholder for local clusters only. In real environments override it with
+  # --set postgres.password=... or (better) point existingSecret at a Secret created
+  # out-of-band so the password never passes through values files or Helm history.
+  password: expenses-local-only
+  existingSecret: ""        # name of a pre-created Secret with keys POSTGRES_USER, POSTGRES_PASSWORD, DATABASE_URL
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""        # "" = cluster default (local-path on k3s, gp2 on EKS); values-prod.yaml sets gp3
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 70           # postgres uid/gid in the alpine image
+    runAsGroup: 70
+    fsGroup: 70             # so the PVC mount is writable by uid 70
+    seccompProfile: {type: RuntimeDefault}
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true   # /var/run/postgresql and /tmp are emptyDir volumes
+    capabilities: {drop: ["ALL"]}
+externalDatabaseUrl: ""     # used only when postgres.enabled=false and existingSecret is empty
+
+service:
+  type: ClusterIP
+
+# ---------------------------------------------------------------------------
+# Ingress: "/" -> frontend:80, "/api" -> backend:8000
+# ---------------------------------------------------------------------------
+ingress:
+  enabled: true
+  # "" = the cluster's default IngressClass. k3s ships Traefik (values-dev.yaml sets
+  # "traefik" explicitly); on EKS I install ingress-nginx or the AWS Load Balancer
+  # Controller and set "nginx" / "alb" in values-prod.yaml.
+  className: ""
+  host: expense.local
+  annotations: {}
+  tls: false                # true requires tlsSecretName (cert-manager or a manual Secret)
+  tlsSecretName: expense-tracker-tls
+
+# ---------------------------------------------------------------------------
+# Autoscaling: HPA on backend CPU (needs metrics-server; k3s has it built in)
+# ---------------------------------------------------------------------------
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 60
+
+# ---------------------------------------------------------------------------
+# Observability: ServiceMonitor for the Prometheus Operator (kube-prometheus-stack)
+# Off by default because the CRD does not exist on a bare cluster and the install
+# would fail; values-dev.yaml / values-prod.yaml turn it on.
+# ---------------------------------------------------------------------------
+serviceMonitor:
+  enabled: false
+  interval: 15s
+  scrapeTimeout: 10s
+  labels:
+    release: kube-prometheus-stack   # harmless when the Prometheus selector is nil (see monitoring/)

@@ -1,0 +1,41 @@
+# Production (EKS from terraform/): 3 replicas, bigger requests, gp3 volume,
+# credentials from a Secret created out-of-band, SHA-pinned images supplied by CI:
+#   helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker \
+#     -f helm/expense-tracker/values-prod.yaml --set backend.image.tag=$GITHUB_SHA --set frontend.image.tag=$GITHUB_SHA
+backend:
+  replicaCount: 3
+  resources:
+    requests: {cpu: 250m, memory: 256Mi}
+    limits: {cpu: 1000m, memory: 768Mi}
+frontend:
+  replicaCount: 3
+config:
+  appEnv: prod
+  logLevel: warning
+  corsOrigins: "https://expense.example.com"
+postgres:
+  # Created before the first install, e.g. with External Secrets Operator or:
+  #   kubectl -n expense-tracker create secret generic expense-tracker-db \
+  #     --from-literal=POSTGRES_USER=expenses --from-literal=POSTGRES_PASSWORD=<real> \
+  #     --from-literal=DATABASE_URL='postgresql+psycopg://expenses:<real>@expense-tracker-postgres:5432/expenses'
+  existingSecret: expense-tracker-db
+  persistence:
+    size: 20Gi
+    storageClass: gp3      # provisioned by the aws-ebs-csi-driver add-on (terraform/main.tf)
+ingress:
+  enabled: true
+  # "nginx" when ingress-nginx is installed (one NLB for the whole cluster).
+  # Use "alb" + alb.ingress.kubernetes.io/* annotations with the AWS Load Balancer Controller instead.
+  className: nginx
+  host: expense.example.com
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls: true
+  tlsSecretName: expense-tracker-tls
+hpa:
+  enabled: true
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 65
+serviceMonitor:
+  enabled: true

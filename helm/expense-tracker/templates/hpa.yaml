@@ -1,0 +1,28 @@
+{{- if .Values.hpa.enabled }}
+# Scales the backend on average CPU utilisation relative to its *requests*
+# (which is why backend.resources.requests.cpu must be set). Needs metrics-server.
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "expense-tracker.fullname" . }}-backend
+  labels:
+    {{- include "expense-tracker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: backend
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "expense-tracker.fullname" . }}-backend
+  minReplicas: {{ .Values.hpa.minReplicas }}
+  maxReplicas: {{ .Values.hpa.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ .Values.hpa.targetCPUUtilizationPercentage }}
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 120   # avoid flapping right after a load burst ends
+{{- end }}

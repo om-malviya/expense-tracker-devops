@@ -1,0 +1,17 @@
+# Non-secret runtime configuration. The backend consumes the whole map with envFrom
+# (pydantic-settings reads upper-case env vars); the frontend picks BACKEND_HOST/PORT
+# for its nginx proxy template; Postgres reads POSTGRES_DB to create the database.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "expense-tracker.fullname" . }}-config
+  labels:
+    {{- include "expense-tracker.labels" . | nindent 4 }}
+data:
+  APP_NAME: {{ .Values.config.appName | quote }}
+  APP_ENV: {{ .Values.config.appEnv | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  BACKEND_HOST: {{ include "expense-tracker.fullname" . }}-backend
+  BACKEND_PORT: {{ .Values.backend.port | quote }}
+  POSTGRES_DB: {{ .Values.postgres.database | quote }}

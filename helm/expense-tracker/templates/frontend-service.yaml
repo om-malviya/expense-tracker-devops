@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "expense-tracker.fullname" . }}-frontend
+  labels:
+    {{- include "expense-tracker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "expense-tracker.selectorLabels" (dict "root" . "component" "frontend") | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.frontend.servicePort }}     # 80 outside ...
+      targetPort: http                             # ... 8080 (nginx-unprivileged) inside

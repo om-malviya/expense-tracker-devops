@@ -1,0 +1,8 @@
+# k8s/ - bootstrap manifests
+
+I keep only the `Namespace` here on purpose: it is the single object that has to exist *before* Helm runs (the chart is installed with `-n expense-tracker`), and the Pod Security labels on it enforce the `restricted` profile for every pod the chart creates. The bootstrap order I use on a fresh cluster is: (1) `kubectl apply -f k8s/namespace.yaml`, (2) if I want metrics, install kube-prometheus-stack from `monitoring/README.md` so the `ServiceMonitor` CRD exists, (3) create the DB credentials Secret out-of-band when using `values-prod.yaml` (`kubectl -n expense-tracker create secret generic expense-tracker-db --from-literal=POSTGRES_USER=... --from-literal=POSTGRES_PASSWORD=... --from-literal=DATABASE_URL=postgresql+psycopg://...`), (4) `helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml`, (5) add `127.0.0.1 expense.local` (k3s) or the load-balancer address (EKS) to `/etc/hosts` and open `http://expense.local/`. Tear-down is the reverse: `helm uninstall expense-tracker -n expense-tracker`, then `kubectl delete -f k8s/namespace.yaml` (this also deletes the Postgres PVC, so back up first if the data matters).
+
+```bash
+kubectl apply -f k8s/namespace.yaml
+kubectl get ns expense-tracker --show-labels
+```

@@ -1,0 +1,36 @@
+{{- if .Values.postgres.enabled }}
+# Headless Service: required by the StatefulSet for the stable pod DNS name
+# (<fullname>-postgres-0.<fullname>-postgres-headless).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "expense-tracker.fullname" . }}-postgres-headless
+  labels:
+    {{- include "expense-tracker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  clusterIP: None
+  selector:
+    {{- include "expense-tracker.selectorLabels" (dict "root" . "component" "postgres") | nindent 4 }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+# ClusterIP Service: the name the backend's DATABASE_URL points at.
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "expense-tracker.fullname" . }}-postgres
+  labels:
+    {{- include "expense-tracker.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "expense-tracker.selectorLabels" (dict "root" . "component" "postgres") | nindent 4 }}
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+{{- end }}
