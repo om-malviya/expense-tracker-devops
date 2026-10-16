@@ -1,0 +1,31 @@
+# Gitleaks configuration - secret scanning of the working tree and the full git history.
+#   CI:    gitleaks/gitleaks-action@v2 with GITLEAKS_CONFIG=security/.gitleaks.toml
+#   local: gitleaks detect --source . --config security/.gitleaks.toml --verbose
+title = "expense-tracker-gitleaks"
+
+[extend]
+useDefault = true # keep every built-in rule (AWS keys, GitHub tokens, private keys, JWTs, ...)
+
+# Project rule: a PostgreSQL URL that embeds a password. The default rule set has nothing that
+# matches SQLAlchemy-style `postgresql+psycopg://user:pass@host` strings.
+[[rules]]
+id = "expense-tracker-database-url-with-password"
+description = "PostgreSQL connection string containing a password"
+# NON-capturing group on purpose: Gitleaks reports capture group 1 as "the secret", so a capturing
+# "(\+psycopg)?" would make the secret "+psycopg" and the allow-list below could never match it.
+regex = '''postgresql(?:\+psycopg)?://[A-Za-z0-9_]+:[^@\s'"<]{8,}@'''
+tags = ["database", "password"]
+
+[allowlist]
+description = "Documented placeholders that are not credentials"
+# Match the allow-list regexes against the whole line, not only the captured secret fragment.
+regexTarget = "line"
+paths = [
+  '''^backend/\.env\.example$''',
+  '''^terraform/terraform\.tfvars\.example$''',
+]
+regexes = [
+  '''expenses-local-only''', # docker-compose / dev-only Postgres password
+  '''changeme''', # placeholder values in example files and docs
+  '''<DB_PASSWORD>''', # template token in README / helm docs
+]

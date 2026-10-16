@@ -1,0 +1,29 @@
+# Trivy configuration for the image-scan gate.
+#   CI:     aquasecurity/trivy-action with `trivy-config: security/trivy.yaml` (+ `trivyignores: security/.trivyignore`)
+#   local:  trivy image --config security/trivy.yaml --ignorefile security/.trivyignore --exit-code 1 <image>
+#
+# Only HIGH and CRITICAL findings are reported, so the table in CI stays readable and the gate
+# fails only on what actually matters.
+severity:
+  - HIGH
+  - CRITICAL
+
+scan:
+  scanners:
+    - vuln # OS packages (Debian/Alpine) + application libraries (pip, npm)
+    - secret # anything that looks like a credential baked into a layer
+    - misconfig # Dockerfile best practices (root user, missing HEALTHCHECK, ...)
+
+vulnerability:
+  type:
+    - os
+    - library
+  # Fail only on CVEs that have a fixed package available. Unfixed CVEs in the base image
+  # (e.g. glibc issues Debian has not patched yet) would otherwise block every build with nothing
+  # I can do about it. NOTE: this key must live under `vulnerability:` - a top-level
+  # `ignore-unfixed:` is silently ignored by Trivy (learned the hard way: 44 HIGH, exit 1).
+  ignore-unfixed: true
+
+# The ignore list is passed explicitly (--ignorefile / trivyignores) rather than via an
+# `ignorefile:` key here, because a relative path in the config does not resolve reliably in CI.
+timeout: 10m

@@ -1,0 +1,15 @@
+# Bandit (Python SAST) configuration.
+#   CI:    bandit -c security/bandit.yaml -r backend/app -f txt
+#   local: same command from the repository root
+#
+# Scope is the application package only: tests legitimately use `assert` (B101) and fixed demo
+# data, and alembic migrations are generated code.
+exclude_dirs:
+  - tests
+  - alembic
+  - .venv
+# No checks are skipped. The container binds 0.0.0.0 (B104) via the Dockerfile CMD, not from
+# Python code, so the application itself must stay clean on every default check.
+skips: []
+# Severity/confidence are left at Bandit's defaults (report everything LOW+); CI fails on any
+# reported finding because bandit exits 1 whenever the report is not empty.

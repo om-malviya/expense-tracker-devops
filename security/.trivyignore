@@ -1,0 +1,4 @@
+# CVE ids listed here are excluded from the Trivy gate (see SECURITY.md, "Exceptions").
+# Every entry needs a justification, an owner and a re-evaluation date:
+#   CVE-XXXX-YYYY   # reason, owner, re-evaluate on YYYY-MM-DD
+# Empty on purpose - there are no accepted risks right now.
