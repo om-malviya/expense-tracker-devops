@@ -1,0 +1,23 @@
+# provider binaries and downloaded modules (re-created by terraform init)
+.terraform/
+
+# state can contain secrets (DB passwords, OIDC thumbprints) - never commit it
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+
+# saved plans embed variable values
+*.tfplan
+tfplan
+
+# my real variable values; terraform.tfvars.example is the committed template
+terraform.tfvars
+*.auto.tfvars
+
+# local overrides and crash dumps
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+crash.log
+crash.*.log
