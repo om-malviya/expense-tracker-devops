@@ -1,0 +1,66 @@
+# Alerting rules for the Expense Tracker backend. Picked up by Prometheus because
+# ruleSelectorNilUsesHelmValues=false in kube-prometheus-stack-values.yaml.
+#   kubectl apply -f monitoring/prometheusrule.yaml
+# Metric names come from prometheus-fastapi-instrumentator: http_requests_total{handler,method,status}
+# and http_request_duration_seconds_bucket{handler,le}. kube_* metrics come from kube-state-metrics.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: expense-tracker-alerts
+  namespace: expense-tracker
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/name: expense-tracker
+    app.kubernetes.io/part-of: expense-tracker
+spec:
+  groups:
+    - name: expense-tracker.availability
+      rules:
+        - alert: ExpenseTrackerBackendDown
+          # `up` is 1 per scraped pod; the sum hitting 0 means no backend pod answered /metrics
+          expr: sum(up{namespace="expense-tracker", job=~".*backend.*"}) == 0
+          for: 2m
+          labels: {severity: critical}
+          annotations:
+            summary: "Expense Tracker backend has no healthy scrape targets"
+            description: "Prometheus could not scrape any backend pod in namespace expense-tracker for 2 minutes. Check `kubectl -n expense-tracker get pods` and the backend logs."
+        - alert: ExpenseTrackerPodCrashLooping
+          expr: increase(kube_pod_container_status_restarts_total{namespace="expense-tracker"}[15m]) > 3
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "Pod {{ $labels.pod }} restarted more than 3 times in 15 minutes"
+    - name: expense-tracker.traffic
+      rules:
+        - alert: ExpenseTrackerHighErrorRate
+          # 5xx share of all /api requests over 5 minutes (> 5 % for 5 minutes)
+          expr: |
+            sum(rate(http_requests_total{namespace="expense-tracker", handler=~"/api.*", status=~"5.."}[5m]))
+              /
+            sum(rate(http_requests_total{namespace="expense-tracker", handler=~"/api.*"}[5m])) > 0.05
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "More than 5% of Expense Tracker API requests return 5xx"
+            description: "Current 5xx ratio: {{ $value | humanizePercentage }}. Most likely the database is unreachable (/ready would be failing too)."
+        - alert: ExpenseTrackerHighLatencyP95
+          # p95 over the histogram buckets of every /api handler (> 500 ms for 5 minutes)
+          expr: |
+            histogram_quantile(0.95,
+              sum by (le) (rate(http_request_duration_seconds_bucket{namespace="expense-tracker", handler=~"/api.*"}[5m]))) > 0.5
+          for: 5m
+          labels: {severity: warning}
+          annotations:
+            summary: "p95 latency of the Expense Tracker API is above 500 ms"
+            description: "p95 = {{ $value | humanizeDuration }}. Check Postgres CPU and whether the HPA has room to scale."
+    - name: expense-tracker.capacity
+      rules:
+        - alert: ExpenseTrackerHpaAtMax
+          # the autoscaler has nothing left to give; either raise maxReplicas or add nodes
+          expr: |
+            kube_horizontalpodautoscaler_status_current_replicas{namespace="expense-tracker"}
+              >= kube_horizontalpodautoscaler_spec_max_replicas{namespace="expense-tracker"}
+          for: 10m
+          labels: {severity: info}
+          annotations:
+            summary: "HPA {{ $labels.horizontalpodautoscaler }} has been at max replicas for 10 minutes"

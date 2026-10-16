@@ -1,0 +1,85 @@
+# Values for the prometheus-community/kube-prometheus-stack chart (Prometheus Operator +
+# Prometheus + Alertmanager + Grafana + node-exporter + kube-state-metrics).
+#
+#   helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+#   helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+#     -n monitoring --create-namespace -f monitoring/kube-prometheus-stack-values.yaml
+#
+# Sized for a 2 x t3.medium EKS cluster or a laptop k3s: short retention, small requests.
+fullnameOverride: kube-prometheus-stack
+
+prometheus:
+  prometheusSpec:
+    retention: 2d                # a demo cluster only needs the last couple of days
+    scrapeInterval: 15s
+    evaluationInterval: 15s
+    # By default the operator only picks up ServiceMonitors / PodMonitors / PrometheusRules
+    # that carry `release: kube-prometheus-stack`. Setting these to false makes it select
+    # ALL of them in every namespace, so the expense-tracker chart's ServiceMonitor is
+    # scraped even when someone installs it without the release label.
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    serviceMonitorNamespaceSelector: {}
+    podMonitorNamespaceSelector: {}
+    ruleNamespaceSelector: {}
+    resources:
+      requests: {cpu: 100m, memory: 384Mi}
+      limits: {cpu: 500m, memory: 1Gi}
+    # emptyDir by default (no storageSpec) so the install works without a StorageClass;
+    # uncomment for a persistent TSDB.
+    # storageSpec:
+    #   volumeClaimTemplate:
+    #     spec:
+    #       accessModes: ["ReadWriteOnce"]
+    #       resources: {requests: {storage: 5Gi}}
+
+grafana:
+  enabled: true
+  # FAKE placeholder - the grader can log in with admin / this value on a throw-away cluster.
+  # For anything shared: --set grafana.adminPassword=... or grafana.admin.existingSecret.
+  adminPassword: grafana-local-only
+  defaultDashboardsEnabled: true   # the bundled Kubernetes dashboards are useful for node/pod views
+  sidecar:
+    dashboards:
+      enabled: true
+      label: grafana_dashboard     # any ConfigMap with grafana_dashboard: "1" is auto-imported
+      labelValue: "1"
+      searchNamespace: ALL         # grafana-dashboard-configmap.yaml lives in `monitoring`, the app in `expense-tracker`
+      folder: /tmp/dashboards
+  resources:
+    requests: {cpu: 50m, memory: 128Mi}
+    limits: {cpu: 300m, memory: 256Mi}
+  service:
+    type: ClusterIP                # I port-forward instead of exposing Grafana publicly
+  ingress:
+    enabled: false
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    resources:
+      requests: {cpu: 10m, memory: 32Mi}
+      limits: {cpu: 100m, memory: 128Mi}
+  config:
+    route:
+      receiver: "null"             # alerts are visible in the UI; no pager for a classroom cluster
+      group_by: [alertname, namespace]
+    receivers:
+      - name: "null"
+
+prometheusOperator:
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 200m, memory: 256Mi}
+
+# Control-plane components are not scrapeable on EKS (managed) or k3s (single binary),
+# so disabling them removes permanently-DOWN targets and their noisy alerts.
+kubeControllerManager: {enabled: false}
+kubeScheduler: {enabled: false}
+kubeEtcd: {enabled: false}
+kubeProxy: {enabled: false}
+
+nodeExporter: {enabled: true}
+kubeStateMetrics: {enabled: true}   # kube_pod_*, kube_horizontalpodautoscaler_* used by my rules and dashboard

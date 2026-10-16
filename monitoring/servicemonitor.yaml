@@ -1,0 +1,26 @@
+# Standalone ServiceMonitor for when the chart is installed with serviceMonitor.enabled=false
+# (the default). It selects the backend Service by the same labels the chart renders, so
+# applying both this and the chart's own ServiceMonitor just yields duplicate scrapes - pick one.
+#   kubectl apply -f monitoring/servicemonitor.yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: expense-tracker-backend
+  namespace: expense-tracker
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/name: expense-tracker
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: expense-tracker
+spec:
+  namespaceSelector:
+    matchNames: [expense-tracker]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: expense-tracker
+      app.kubernetes.io/component: backend
+  endpoints:
+    - port: http              # named port on the backend Service (8000)
+      path: /metrics          # prometheus-fastapi-instrumentator
+      interval: 15s
+      scrapeTimeout: 10s
