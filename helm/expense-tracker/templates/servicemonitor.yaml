@@ -13,9 +13,15 @@ metadata:
     {{- toYaml . | nindent 4 }}
     {{- end }}
 spec:
+  # A ServiceMonitor selects *Services*, not pods. The backend Service carries the common
+  # app.kubernetes.io/* labels (not the plain `app` pod-selector label), so I match on
+  # exactly those - using the pod selectorLabels here silently matched nothing and the
+  # target never showed up in Prometheus.
   selector:
     matchLabels:
-      {{- include "expense-tracker.selectorLabels" (dict "root" . "component" "backend") | nindent 6 }}
+      app.kubernetes.io/name: {{ include "expense-tracker.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: backend
   namespaceSelector:
     matchNames: [{{ .Release.Namespace | quote }}]
   endpoints:
