@@ -1,0 +1,19 @@
+# Keep the image minimal and free of local artefacts and secrets.
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+venv/
+reports/
+htmlcov/
+.coverage
+coverage.xml
+tests/
+requirements-dev.txt
+README.md
+Dockerfile
+.dockerignore
