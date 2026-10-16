@@ -301,7 +301,7 @@ security-static ┘
   fork; my local k3s cluster is not reachable from GitHub runners, so that is what happened here and
   I ran the same command by hand (section 11).
 - Run history: the first run [38919310984](https://github.com/om-malviya/expense-tracker-devops/actions/runs/38919310984)
-  failed after 29 s in the Gitleaks step – my own `postgresql+psycopg://user:password@` rule matched
+  failed after 29 s in the Gitleaks step – my own `postgresql+psycopg://<user>:<password>@` rule matched
   the documented connection-string example in the repo. Commit `ec416e2` replaced the example with
   placeholders and the next run [38919569372](https://github.com/om-malviya/expense-tracker-devops/actions/runs/38919569372)
   went green in 2 m 21 s.
@@ -575,7 +575,7 @@ push, watch the pipeline go green, and deploy the new SHA with `helm upgrade --i
 These are the things that actually went wrong or surprised me while building this, in the order I hit them.
 
 1. **A secret scanner will match your own documentation.** The first pipeline run failed in Gitleaks
-   because my custom `postgresql+psycopg://user:password@` rule matched the example connection string in
+   because my custom `postgresql+psycopg://<user>:<password>@` rule matched the example connection string in
    a README. The fix (`ec416e2`) was placeholders in the docs plus an allow-list by value and path –
    not disabling the rule. Earlier, a capturing group in that regex made Gitleaks report `+psycopg` as
    the secret, so the allow-list could never match; a non-capturing group and `regexTarget = "line"` solved it.

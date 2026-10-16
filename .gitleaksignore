@@ -1,0 +1,10 @@
+# Reviewed historical findings (2026-10-16). None of these is a real credential:
+#  - the README/SECURITY.md lines are documentation examples of the connection-string rule itself
+#    (`user:password` literally); the docs now use <user>:<password> placeholders.
+#  - m9-grafana-health.txt line 1 contained the lab-only Grafana password of the local k3s demo
+#    (same placeholder as monitoring/kube-prometheus-stack-values.yaml); the capture was redacted in a later commit.
+# Listed by fingerprint so the full-history scan stays green without rewriting published history.
+c176f98767806ecb50f24047be440f76326f47ae:docs/screenshots/m9-grafana-health.txt:curl-auth-user:1
+e9d2494d575569a148b5ef9d4bdf3c1f8fc87a6c:README.md:expense-tracker-database-url-with-password:304
+e9d2494d575569a148b5ef9d4bdf3c1f8fc87a6c:README.md:expense-tracker-database-url-with-password:578
+3cd026876692c3b410c6c09eb321a3d803b8900f:SECURITY.md:expense-tracker-database-url-with-password:31
