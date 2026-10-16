@@ -1,0 +1,85 @@
+# Expense Tracker - full local stack in one command:
+#
+#     docker compose up --build
+#
+# Three services, same topology as the Kubernetes deployment so what I test here is what runs in
+# the cluster:
+#   postgres  -> the database (named volume, so data survives `docker compose down`)
+#   backend   -> FastAPI on :8000 (runs `alembic upgrade head` on start, then uvicorn)
+#   frontend  -> React bundle served by unprivileged nginx on :8080, exposed on host :3000;
+#                nginx proxies /api/ to the backend so the browser only ever talks to one origin.
+#
+# Host ports: frontend http://localhost:3000, backend http://localhost:8000, postgres localhost:5432.
+# The password below is a local-only placeholder (never used outside this file / dev docs);
+# in Kubernetes the real DATABASE_URL comes from a Secret.
+name: expense-tracker
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: expense-tracker-postgres
+    environment:
+      POSTGRES_DB: expenses
+      POSTGRES_USER: expenses
+      POSTGRES_PASSWORD: expenses-local-only
+    ports:
+      - "5432:5432" # handy for psql / DB GUIs from the host; not needed by the other containers
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    # pg_isready answers only once the server accepts connections. The backend waits for this
+    # (depends_on ... service_healthy) so `alembic upgrade head` never races the DB start-up.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U expenses -d expenses"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+  backend:
+    build: ./backend
+    image: expense-tracker-backend:local
+    container_name: expense-tracker-backend
+    environment:
+      APP_ENV: compose
+      LOG_LEVEL: info
+      # psycopg v3 driver; host "postgres" resolves through the compose network
+      DATABASE_URL: postgresql+psycopg://expenses:expenses-local-only@postgres:5432/expenses
+      # Both the nginx-served app (3000) and the Vite dev server (5173) may call the API directly
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    # /health is the liveness endpoint (no DB access). The image is python-slim without curl,
+    # so the check uses the interpreter that is guaranteed to be there.
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=3).status == 200 else 1)",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s # migrations run before uvicorn binds the port
+
+  frontend:
+    build: ./frontend
+    image: expense-tracker-frontend:local
+    container_name: expense-tracker-frontend
+    environment:
+      # Rendered into nginx's proxy_pass by the image entrypoint (envsubst template).
+      # In Kubernetes this becomes the backend Service name instead.
+      BACKEND_HOST: backend
+      BACKEND_PORT: "8000"
+    depends_on:
+      backend:
+        condition: service_healthy # avoid 502s on first page load while the API is still migrating
+    ports:
+      - "3000:8080" # nginx-unprivileged listens on 8080 (non-root cannot bind 80)
+
+volumes:
+  postgres-data:
