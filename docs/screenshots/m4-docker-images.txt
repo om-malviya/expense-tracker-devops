@@ -1,0 +1,5 @@
+$ docker images | head -1; docker images | grep -E 'expense-tracker|postgres:16'
+IMAGE                                        ID             DISK USAGE   CONTENT SIZE   EXTRA
+expense-tracker-backend:local                1256cab74908        337MB         72.1MB   U    
+expense-tracker-frontend:local               d1378c40d547       90.5MB           26MB   U    
+postgres:16-alpine                           721873c34ceb        411MB          115MB   U    

@@ -1,0 +1,52 @@
+$ docker compose up --build -d 2>&1 | tail -45; echo; echo '# waiting for all three services to report healthy'; for i in $(seq 1 36); do n=$(docker compose ps | grep -c '(healthy)'); [ "$n" -ge 3 ] && break; sleep 5; done; docker compose ps
+ ---> 7d76c658dc5f
+Step 11/14 : USER 101
+ ---> Running in 9b4c9230ff78
+ ---> Removed intermediate container 9b4c9230ff78
+ ---> 39b7c0001a03
+Step 12/14 : EXPOSE 8080
+ ---> Running in ac81b66a6214
+ ---> Removed intermediate container ac81b66a6214
+ ---> 291e6fe03675
+Step 13/14 : HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3   CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1
+ ---> Running in b7d234ddfcbd
+ ---> Removed intermediate container b7d234ddfcbd
+ ---> 2c8941fafb22
+Step 14/14 : LABEL com.docker.compose.image.builder=classic
+ ---> Running in 2fcaa621954a
+ ---> Removed intermediate container 2fcaa621954a
+ ---> d1378c40d547
+Successfully built d1378c40d547
+Successfully tagged expense-tracker-frontend:local
+ Image expense-tracker-frontend:local Built 
+ Image expense-tracker-frontend:local Built 
+ Network expense-tracker_default Creating 
+ Volume expense-tracker_postgres-data Creating 
+ Volume expense-tracker_postgres-data Creating 
+ Network expense-tracker_default Creating 
+ Volume expense-tracker_postgres-data Created 
+ Volume expense-tracker_postgres-data Created 
+ Network expense-tracker_default Created 
+ Network expense-tracker_default Created 
+ Container expense-tracker-postgres Creating 
+ Container expense-tracker-postgres Created 
+ Container expense-tracker-backend Creating 
+ Container expense-tracker-backend Created 
+ Container expense-tracker-frontend Creating 
+ Container expense-tracker-frontend Created 
+ Container expense-tracker-postgres Starting 
+ Container expense-tracker-postgres Started 
+ Container expense-tracker-postgres Waiting 
+ Container expense-tracker-postgres Healthy 
+ Container expense-tracker-backend Starting 
+ Container expense-tracker-backend Started 
+ Container expense-tracker-backend Waiting 
+ Container expense-tracker-backend Healthy 
+ Container expense-tracker-frontend Starting 
+ Container expense-tracker-frontend Started 
+
+# waiting for all three services to report healthy
+NAME                       IMAGE                            COMMAND                  SERVICE    CREATED          STATUS                    PORTS
+expense-tracker-backend    expense-tracker-backend:local    "sh -c 'alembic upgr…"   backend    16 seconds ago   Up 10 seconds (healthy)   0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+expense-tracker-frontend   expense-tracker-frontend:local   "/docker-entrypoint.…"   frontend   16 seconds ago   Up 5 seconds (healthy)    0.0.0.0:3000->8080/tcp, [::]:3000->8080/tcp
+expense-tracker-postgres   postgres:16-alpine               "docker-entrypoint.s…"   postgres   16 seconds ago   Up 16 seconds (healthy)   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp

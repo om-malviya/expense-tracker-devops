@@ -1,0 +1,217 @@
+# --- operational endpoints ---------------------------------------------------
+$ curl -s http://localhost:8000/health; echo
+{"status":"UP"}
+
+$ curl -s http://localhost:8000/ready; echo
+{"status":"READY"}
+
+$ curl -s http://localhost:8000/ | python3 -m json.tool --indent 2
+{
+  "service": "Expense Tracker API",
+  "env": "compose",
+  "version": "1.0.0"
+}
+
+# --- create expenses (POST, 201) ----------------------------------------------
+$ curl -s -w '\n[HTTP %{http_code}]\n' -X POST http://localhost:8000/api/expenses -H 'Content-Type: application/json' -d '{"title":"Monthly rent - Bhopal flat","amount":12000,"category":"housing","spent_on":"2026-10-01","payment_method":"bank_transfer","note":"October rent"}'
+{"id":1,"title":"Monthly rent - Bhopal flat","amount":12000.0,"category":"housing","spent_on":"2026-10-01","payment_method":"bank_transfer","note":"October rent","created_at":"2026-10-16T14:53:37.770247Z","updated_at":"2026-10-16T14:53:37.770247Z"}
+[HTTP 201]
+
+$ curl -s -w '\n[HTTP %{http_code}]\n' -X POST http://localhost:8000/api/expenses -H 'Content-Type: application/json' -d '{"title":"Groceries - DMart","amount":2350.75,"category":"food","spent_on":"2026-10-12","payment_method":"upi"}'
+{"id":2,"title":"Groceries - DMart","amount":2350.75,"category":"food","spent_on":"2026-10-12","payment_method":"upi","note":null,"created_at":"2026-10-16T14:53:37.796630Z","updated_at":"2026-10-16T14:53:37.796630Z"}
+[HTTP 201]
+
+$ curl -s -w '\n[HTTP %{http_code}]\n' -X POST http://localhost:8000/api/expenses -H 'Content-Type: application/json' -d '{"title":"Metro card top-up","amount":500,"category":"transport","spent_on":"2026-10-14","payment_method":"card"}'
+{"id":3,"title":"Metro card top-up","amount":500.0,"category":"transport","spent_on":"2026-10-14","payment_method":"card","note":null,"created_at":"2026-10-16T14:53:37.820121Z","updated_at":"2026-10-16T14:53:37.820121Z"}
+[HTTP 201]
+
+$ curl -s -w '\n[HTTP %{http_code}]\n' -X POST http://localhost:8000/api/expenses -H 'Content-Type: application/json' -d '{"title":"Electricity bill (September)","amount":1840,"category":"utilities","spent_on":"2026-09-18","payment_method":"upi","note":"MPEB"}'
+{"id":4,"title":"Electricity bill (September)","amount":1840.0,"category":"utilities","spent_on":"2026-09-18","payment_method":"upi","note":"MPEB","created_at":"2026-10-16T14:53:37.844729Z","updated_at":"2026-10-16T14:53:37.844729Z"}
+[HTTP 201]
+
+$ curl -s -w '\n[HTTP %{http_code}]\n' -X POST http://localhost:8000/api/expenses -H 'Content-Type: application/json' -d '{"title":"Kubernetes fundamentals course","amount":1999,"category":"education","spent_on":"2026-08-22","payment_method":"card"}'
+{"id":5,"title":"Kubernetes fundamentals course","amount":1999.0,"category":"education","spent_on":"2026-08-22","payment_method":"card","note":null,"created_at":"2026-10-16T14:53:37.868198Z","updated_at":"2026-10-16T14:53:37.868198Z"}
+[HTTP 201]
+
+$ curl -s -w '\n[HTTP %{http_code}]\n' -X POST http://localhost:8000/api/expenses -H 'Content-Type: application/json' -d '{"title":"Coffee with friends","amount":320,"category":"entertainment","spent_on":"2026-10-15","payment_method":"cash"}'
+{"id":6,"title":"Coffee with friends","amount":320.0,"category":"entertainment","spent_on":"2026-10-15","payment_method":"cash","note":null,"created_at":"2026-10-16T14:53:37.892297Z","updated_at":"2026-10-16T14:53:37.892297Z"}
+[HTTP 201]
+
+# --- validation: amount must be > 0, category must be in the enum (422) ---------
+$ curl -s -w '\n[HTTP %{http_code}]\n' -X POST http://localhost:8000/api/expenses -H 'Content-Type: application/json' -d '{"title":"Bad","amount":-5,"category":"crypto","spent_on":"2026-10-10","payment_method":"cash"}'
+{"detail":[{"type":"greater_than","loc":["body","amount"],"msg":"Input should be greater than 0","input":-5,"ctx":{"gt":0}},{"type":"enum","loc":["body","category"],"msg":"Input should be 'food', 'transport', 'housing', 'utilities', 'health', 'entertainment', 'shopping', 'education' or 'other'","input":"crypto","ctx":{"expected":"'food', 'transport', 'housing', 'utilities', 'health', 'entertainment', 'shopping', 'education' or 'other'"}}]}
+[HTTP 422]
+
+# --- list + filters (GET) -------------------------------------------------------
+$ curl -s 'http://localhost:8000/api/expenses' | python3 -c "import json,sys; [print('%3d  %s  %-13s%10.2f  %s' % (e['id'], e['spent_on'], e['category'], e['amount'], e['title'])) for e in json.load(sys.stdin)]"
+  6  2026-10-15  entertainment    320.00  Coffee with friends
+  3  2026-10-14  transport        500.00  Metro card top-up
+  2  2026-10-12  food            2350.75  Groceries - DMart
+  1  2026-10-01  housing        12000.00  Monthly rent - Bhopal flat
+  4  2026-09-18  utilities       1840.00  Electricity bill (September)
+  5  2026-08-22  education       1999.00  Kubernetes fundamentals course
+
+$ curl -s 'http://localhost:8000/api/expenses?category=food' | python3 -m json.tool --indent 2
+[
+  {
+    "id": 2,
+    "title": "Groceries - DMart",
+    "amount": 2350.75,
+    "category": "food",
+    "spent_on": "2026-10-12",
+    "payment_method": "upi",
+    "note": null,
+    "created_at": "2026-10-16T14:53:37.796630Z",
+    "updated_at": "2026-10-16T14:53:37.796630Z"
+  }
+]
+
+$ curl -s 'http://localhost:8000/api/expenses?month=2026-09' | python3 -m json.tool --indent 2
+[
+  {
+    "id": 4,
+    "title": "Electricity bill (September)",
+    "amount": 1840.0,
+    "category": "utilities",
+    "spent_on": "2026-09-18",
+    "payment_method": "upi",
+    "note": "MPEB",
+    "created_at": "2026-10-16T14:53:37.844729Z",
+    "updated_at": "2026-10-16T14:53:37.844729Z"
+  }
+]
+
+$ curl -s 'http://localhost:8000/api/expenses?q=metro' | python3 -m json.tool --indent 2
+[
+  {
+    "id": 3,
+    "title": "Metro card top-up",
+    "amount": 500.0,
+    "category": "transport",
+    "spent_on": "2026-10-14",
+    "payment_method": "card",
+    "note": null,
+    "created_at": "2026-10-16T14:53:37.820121Z",
+    "updated_at": "2026-10-16T14:53:37.820121Z"
+  }
+]
+
+# --- read one, partial update, delete ----------------------------------------
+$ curl -s http://localhost:8000/api/expenses/3 | python3 -m json.tool --indent 2
+{
+  "id": 3,
+  "title": "Metro card top-up",
+  "amount": 500.0,
+  "category": "transport",
+  "spent_on": "2026-10-14",
+  "payment_method": "card",
+  "note": null,
+  "created_at": "2026-10-16T14:53:37.820121Z",
+  "updated_at": "2026-10-16T14:53:37.820121Z"
+}
+
+$ curl -s -X PUT http://localhost:8000/api/expenses/3 -H 'Content-Type: application/json' -d '{"amount":600,"note":"topped up 600, not 500"}' | python3 -m json.tool --indent 2
+{
+  "id": 3,
+  "title": "Metro card top-up",
+  "amount": 600.0,
+  "category": "transport",
+  "spent_on": "2026-10-14",
+  "payment_method": "card",
+  "note": "topped up 600, not 500",
+  "created_at": "2026-10-16T14:53:37.820121Z",
+  "updated_at": "2026-10-16T14:53:38.040110Z"
+}
+
+$ curl -s -w '[HTTP %{http_code}]\n' -X DELETE http://localhost:8000/api/expenses/6
+[HTTP 204]
+
+$ curl -s -w '\n[HTTP %{http_code}]\n' http://localhost:8000/api/expenses/6
+{"detail":"Expense not found"}
+[HTTP 404]
+
+# --- dashboard summary + Prometheus metrics -----------------------------------
+$ curl -s http://localhost:8000/api/expenses/summary | python3 -m json.tool --indent 2
+{
+  "total": 18789.75,
+  "count": 5,
+  "by_category": [
+    {
+      "category": "housing",
+      "total": 12000.0,
+      "count": 1
+    },
+    {
+      "category": "food",
+      "total": 2350.75,
+      "count": 1
+    },
+    {
+      "category": "education",
+      "total": 1999.0,
+      "count": 1
+    },
+    {
+      "category": "utilities",
+      "total": 1840.0,
+      "count": 1
+    },
+    {
+      "category": "transport",
+      "total": 600.0,
+      "count": 1
+    }
+  ],
+  "by_month": [
+    {
+      "month": "2026-05",
+      "total": 0.0
+    },
+    {
+      "month": "2026-06",
+      "total": 0.0
+    },
+    {
+      "month": "2026-07",
+      "total": 0.0
+    },
+    {
+      "month": "2026-08",
+      "total": 1999.0
+    },
+    {
+      "month": "2026-09",
+      "total": 1840.0
+    },
+    {
+      "month": "2026-10",
+      "total": 14950.75
+    }
+  ],
+  "top_category": "housing",
+  "this_month_total": 14950.75,
+  "average_per_day_this_month": 934.42
+}
+
+$ curl -s http://localhost:8000/metrics | head -20
+# HELP python_gc_objects_collected_total Objects collected during gc
+# TYPE python_gc_objects_collected_total counter
+python_gc_objects_collected_total{generation="0"} 707.0
+python_gc_objects_collected_total{generation="1"} 41.0
+python_gc_objects_collected_total{generation="2"} 0.0
+# HELP python_gc_objects_uncollectable_total Uncollectable objects found during GC
+# TYPE python_gc_objects_uncollectable_total counter
+python_gc_objects_uncollectable_total{generation="0"} 0.0
+python_gc_objects_uncollectable_total{generation="1"} 0.0
+python_gc_objects_uncollectable_total{generation="2"} 0.0
+# HELP python_gc_collections_total Number of times this generation was collected
+# TYPE python_gc_collections_total counter
+python_gc_collections_total{generation="0"} 212.0
+python_gc_collections_total{generation="1"} 19.0
+python_gc_collections_total{generation="2"} 1.0
+# HELP python_info Python platform information
+# TYPE python_info gauge
+python_info{implementation="CPython",major="3",minor="12",patchlevel="15",version="3.12.15"} 1.0
+# HELP process_virtual_memory_bytes Virtual memory size in bytes.
+# TYPE process_virtual_memory_bytes gauge
+

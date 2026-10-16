@@ -1,0 +1,33 @@
+$ cd backend && source .venv/bin/activate && python --version && pytest -v
+Python 3.12.0
+============================= test session starts ==============================
+platform darwin -- Python 3.12.0, pytest-9.1.1, pluggy-1.7.0 -- /Users/ommalviya/Desktop/DevOps/expense-tracker-devops/backend/.venv/bin/python3.12
+rootdir: /Users/ommalviya/Desktop/DevOps/expense-tracker-devops/backend
+configfile: pytest.ini
+testpaths: tests
+plugins: cov-7.1.0, platformdirs-4.13.3, anyio-4.15.1
+collecting ... collected 20 items
+
+tests/test_api.py::test_health PASSED                                    [  5%]
+tests/test_api.py::test_ready_runs_database_check PASSED                 [ 10%]
+tests/test_api.py::test_root_reports_service_and_env PASSED              [ 15%]
+tests/test_api.py::test_metrics_endpoint_is_prometheus_format PASSED     [ 20%]
+tests/test_api.py::test_create_expense_returns_201_and_echoes_fields PASSED [ 25%]
+tests/test_api.py::test_create_rejects_non_positive_amount PASSED        [ 30%]
+tests/test_api.py::test_create_rejects_more_than_two_decimal_places PASSED [ 35%]
+tests/test_api.py::test_create_rejects_unknown_category_and_payment_method PASSED [ 40%]
+tests/test_api.py::test_create_rejects_empty_or_overlong_title PASSED    [ 45%]
+tests/test_api.py::test_list_orders_newest_spent_on_first PASSED         [ 50%]
+tests/test_api.py::test_list_filters_by_category PASSED                  [ 55%]
+tests/test_api.py::test_list_filters_by_month PASSED                     [ 60%]
+tests/test_api.py::test_list_searches_title_case_insensitively PASSED    [ 65%]
+tests/test_api.py::test_get_expense_by_id PASSED                         [ 70%]
+tests/test_api.py::test_get_missing_expense_returns_404 PASSED           [ 75%]
+tests/test_api.py::test_update_is_partial PASSED                         [ 80%]
+tests/test_api.py::test_delete_returns_204_then_404 PASSED               [ 85%]
+tests/test_api.py::test_summary_is_empty_but_well_formed_without_data PASSED [ 90%]
+tests/test_api.py::test_summary_aggregates_totals_by_category_and_month PASSED [ 95%]
+tests/test_api.py::test_cors_allows_only_configured_origins PASSED       [100%]
+
+- generated xml file: /Users/ommalviya/Desktop/DevOps/expense-tracker-devops/backend/reports/junit.xml -
+============================== 20 passed in 0.10s ==============================

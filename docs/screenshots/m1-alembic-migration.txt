@@ -1,0 +1,54 @@
+$ docker compose exec backend alembic current; echo; docker compose exec backend alembic history --verbose | head -12; echo; docker compose exec postgres psql -U expenses -d expenses -c '\dt' -c '\d expenses' -c 'select id,title,amount,category,spent_on from expenses order by spent_on desc;' -c 'select * from alembic_version;'
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0001_create_expenses (head)
+
+Rev: 0001_create_expenses (head)
+Parent: <base>
+Path: /app/alembic/versions/0001_create_expenses.py
+
+    create expenses table
+    
+    Revision ID: 0001_create_expenses
+    Revises: None
+    Create Date: 2026-10-16
+
+
+              List of relations
+ Schema |      Name       | Type  |  Owner   
+--------+-----------------+-------+----------
+ public | alembic_version | table | expenses
+ public | expenses        | table | expenses
+(2 rows)
+
+                                         Table "public.expenses"
+     Column     |           Type           | Collation | Nullable |               Default                
+----------------+--------------------------+-----------+----------+--------------------------------------
+ id             | integer                  |           | not null | nextval('expenses_id_seq'::regclass)
+ title          | character varying(120)   |           | not null | 
+ amount         | numeric(10,2)            |           | not null | 
+ category       | character varying(32)    |           | not null | 
+ spent_on       | date                     |           | not null | 
+ payment_method | character varying(20)    |           | not null | 
+ note           | text                     |           |          | 
+ created_at     | timestamp with time zone |           | not null | now()
+ updated_at     | timestamp with time zone |           | not null | now()
+Indexes:
+    "expenses_pkey" PRIMARY KEY, btree (id)
+    "ix_expenses_category" btree (category)
+    "ix_expenses_spent_on" btree (spent_on)
+
+ id |             title              |  amount  | category  |  spent_on  
+----+--------------------------------+----------+-----------+------------
+  3 | Metro card top-up              |   600.00 | transport | 2026-10-14
+  2 | Groceries - DMart              |  2350.75 | food      | 2026-10-12
+  1 | Monthly rent - Bhopal flat     | 12000.00 | housing   | 2026-10-01
+  4 | Electricity bill (September)   |  1840.00 | utilities | 2026-09-18
+  5 | Kubernetes fundamentals course |  1999.00 | education | 2026-08-22
+(5 rows)
+
+     version_num      
+----------------------
+ 0001_create_expenses
+(1 row)
+

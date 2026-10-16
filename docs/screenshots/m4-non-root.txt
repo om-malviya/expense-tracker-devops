@@ -1,0 +1,16 @@
+$ echo '# backend (python:3.12-slim, USER 10001)'; docker compose exec backend id; docker compose exec backend sh -c 'ps -o user,pid,comm 2>/dev/null || cat /proc/1/status | grep -E "^(Name|Uid)"'; echo; echo '# frontend (nginx-unprivileged, USER 101)'; docker compose exec frontend id; echo; echo '# pip was uninstalled from the backend image after the dependency install (see backend/Dockerfile)'; docker compose exec backend python -m pip --version; echo "exit code: $?"; echo; echo '# USER instructions in both Dockerfiles'; grep -n '^USER' backend/Dockerfile frontend/Dockerfile
+# backend (python:3.12-slim, USER 10001)
+uid=10001(appuser) gid=10001(appuser) groups=10001(appuser)
+Name:	sh
+Uid:	10001	10001	10001	10001
+
+# frontend (nginx-unprivileged, USER 101)
+uid=101(nginx) gid=101(nginx) groups=101(nginx)
+
+# pip was uninstalled from the backend image after the dependency install (see backend/Dockerfile)
+/usr/local/bin/python: No module named pip
+exit code: 1
+
+# USER instructions in both Dockerfiles
+backend/Dockerfile:28:USER 10001
+frontend/Dockerfile:44:USER 101
