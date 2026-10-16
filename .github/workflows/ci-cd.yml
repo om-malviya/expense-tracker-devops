@@ -1,0 +1,274 @@
+name: Expense Tracker CI/CD
+
+# Pipeline order (each arrow is a `needs:` edge, so a red job stops everything after it):
+#
+#   backend-test ──┐
+#   frontend-build ─┼─> build-scan-push ──> deploy (main only)
+#   security-static ┘      │
+#                          └─ docker build x2 -> Trivy gate x2 -> push to GHCR (:sha, +:latest on main)
+#
+# Design notes
+# * pytest failing blocks the image build, the push and the deploy - that is the whole point of
+#   running tests first (rubric M2/M5).
+# * Images are tagged with the git SHA so every deployment is traceable to one commit; `latest`
+#   is only a convenience alias added on main.
+# * Trivy runs on BOTH images with exit-code 1 on HIGH/CRITICAL (fixable) CVEs, so a vulnerable
+#   image never reaches the registry (rubric M6). A second, non-blocking Trivy run uploads SARIF
+#   so findings also show up in the repository's Security tab.
+# * Deployment only happens on main and only when a KUBE_CONFIG_DATA secret exists; otherwise the
+#   job prints the exact helm command I run by hand, so the pipeline stays green on a fresh fork.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: om-malviya
+  # The `env` context is not available while the workflow-level env block itself is being
+  # evaluated, so the image names are spelled out instead of composed from the two values above.
+  BACKEND_IMAGE: ghcr.io/om-malviya/expense-tracker-backend
+  FRONTEND_IMAGE: ghcr.io/om-malviya/expense-tracker-frontend
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "22"
+
+permissions:
+  contents: read
+
+jobs:
+  # ------------------------------------------------------------------ 1. Backend lint + tests
+  backend-test:
+    name: Backend lint + pytest
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # requirements-dev.txt pins pytest, ruff, bandit and pip-audit - same versions as local runs
+          pip install -r requirements.txt -r requirements-dev.txt
+      - name: Lint (ruff)
+        run: ruff check app tests
+      - name: Run tests (SQLite test DB, see tests/conftest.py)
+        run: pytest -v --junitxml=reports/junit.xml
+      - name: Upload pytest report
+        uses: actions/upload-artifact@v4
+        if: always() # keep the report when tests fail - that is when it is most useful
+        with:
+          name: pytest-report
+          path: backend/reports/junit.xml
+
+  # ------------------------------------------------------------------ 2. Frontend build + npm audit
+  frontend-build:
+    name: Frontend build + npm audit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - name: Install (npm ci = exact versions from package-lock.json)
+        run: npm ci --no-audit --no-fund
+      - name: Build production bundle
+        run: npm run build
+      - name: npm audit (fails on HIGH/CRITICAL advisories)
+        run: npm audit --audit-level=high
+      - name: Upload dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend/dist
+
+  # ------------------------------------------------------------------ 3. Static security: SAST + SCA + secrets
+  security-static:
+    name: Security (bandit + pip-audit + gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans the full history - a secret removed in a later commit is still a leak
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+      - name: Install scanners (same pins as backend/requirements-dev.txt)
+        run: pip install bandit==1.9.4 pip-audit==2.10.1
+      - name: Bandit (Python SAST)
+        run: bandit -c security/bandit.yaml -r backend/app -f txt
+      - name: pip-audit (SCA, fails on any known vulnerability)
+        run: pip-audit -r backend/requirements.txt --strict
+      - name: Gitleaks (secret scan)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: ${{ github.workspace }}/security/.gitleaks.toml
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "true"
+
+  # ------------------------------------------------------------------ 4. Docker build -> Trivy gate -> push
+  build-scan-push:
+    name: Docker build + Trivy gate + push to GHCR
+    needs: [backend-test, frontend-build, security-static]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write # push to ghcr.io
+      security-events: write # upload Trivy SARIF to the Security tab
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build backend image
+        run: docker build --pull -t "$BACKEND_IMAGE:${{ github.sha }}" ./backend
+      - name: Build frontend image
+        run: docker build --pull -t "$FRONTEND_IMAGE:${{ github.sha }}" ./frontend
+
+      # --- Gate: HIGH/CRITICAL CVEs with a fix available fail the job (exit-code 1). ---
+      # ignore-unfixed lives under `vulnerability:` in security/trivy.yaml (a top-level key is
+      # silently ignored by Trivy). The ignore list is passed through the action input because a
+      # relative `ignorefile:` inside the config does not resolve reliably.
+      - name: "Trivy gate: backend image (HIGH/CRITICAL fixable CVEs fail the build)"
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: table
+          exit-code: "1"
+      - name: "Trivy gate: frontend image (HIGH/CRITICAL fixable CVEs fail the build)"
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: table
+          exit-code: "1"
+
+      # --- Reporting: same scans as SARIF (never blocking) so findings appear under Security > Code scanning ---
+      - name: Trivy SARIF report (backend)
+        if: ${{ !cancelled() }}
+        continue-on-error: true # reporting only; the gate above is what fails the build
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: sarif
+          output: trivy-backend.sarif
+          exit-code: "0"
+      - name: Upload backend SARIF
+        if: ${{ !cancelled() }}
+        continue-on-error: true # PRs from forks have no security-events permission
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-backend.sarif
+          category: trivy-backend
+      - name: Trivy SARIF report (frontend)
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          version: v0.75.0 # pinned scanner build (the action default was removed upstream once and broke installs)
+          image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          trivy-config: security/trivy.yaml
+          trivyignores: security/.trivyignore
+          format: sarif
+          output: trivy-frontend.sarif
+          exit-code: "0"
+      - name: Upload frontend SARIF
+        if: ${{ !cancelled() }}
+        continue-on-error: true
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: trivy-frontend.sarif
+          category: trivy-frontend
+
+      # --- Push: only after both gates passed. Pull requests build + scan but never publish. ---
+      - name: Login to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push images tagged with the commit SHA
+        if: github.event_name != 'pull_request'
+        run: |
+          docker push "$BACKEND_IMAGE:${{ github.sha }}"
+          docker push "$FRONTEND_IMAGE:${{ github.sha }}"
+      - name: Also tag + push :latest (push to main only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          docker tag "$BACKEND_IMAGE:${{ github.sha }}"  "$BACKEND_IMAGE:latest"
+          docker tag "$FRONTEND_IMAGE:${{ github.sha }}" "$FRONTEND_IMAGE:latest"
+          docker push "$BACKEND_IMAGE:latest"
+          docker push "$FRONTEND_IMAGE:latest"
+      - name: Print pushed image digests
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## Published images" >> "$GITHUB_STEP_SUMMARY"
+          for ref in "$BACKEND_IMAGE:${{ github.sha }}" "$FRONTEND_IMAGE:${{ github.sha }}"; do
+            digest="$(docker image inspect --format '{{join .RepoDigests "\n"}}' "$ref" | grep "${ref%%:*}@" | head -n1)"
+            echo "$ref -> ${digest:-<no digest recorded>}"
+            echo "- \`$ref\` -> \`${digest:-n/a}\`" >> "$GITHUB_STEP_SUMMARY"
+          done
+
+  # ------------------------------------------------------------------ 5. Deploy with Helm (main only)
+  deploy:
+    name: Helm deploy
+    needs: build-scan-push
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      # `secrets.*` cannot be used directly in a step-level `if`, so the presence check is
+      # materialised into an env var here and the steps test that instead.
+      HAS_KUBECONFIG: ${{ secrets.KUBE_CONFIG_DATA != '' }}
+      HELM_CMD: >-
+        helm upgrade --install expense-tracker ./helm/expense-tracker
+        -n expense-tracker --create-namespace
+        -f helm/expense-tracker/values-prod.yaml
+        --set backend.image.tag=${{ github.sha }}
+        --set frontend.image.tag=${{ github.sha }}
+        --wait
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+      - name: helm lint
+        run: |
+          helm lint ./helm/expense-tracker
+          helm lint ./helm/expense-tracker -f helm/expense-tracker/values-prod.yaml
+      - name: Skip notice (no KUBE_CONFIG_DATA secret configured)
+        if: env.HAS_KUBECONFIG != 'true'
+        run: |
+          echo "::notice title=Deploy skipped::KUBE_CONFIG_DATA secret is not set; the cluster is deployed manually with:"
+          echo "  $HELM_CMD"
+      - name: Write kubeconfig from secret
+        if: env.HAS_KUBECONFIG == 'true'
+        env:
+          KUBE_CONFIG_DATA: ${{ secrets.KUBE_CONFIG_DATA }} # base64 of ~/.kube/config
+        run: |
+          mkdir -p ~/.kube
+          echo "$KUBE_CONFIG_DATA" | base64 -d > ~/.kube/config
+          chmod 600 ~/.kube/config
+      - name: helm upgrade --install
+        if: env.HAS_KUBECONFIG == 'true'
+        run: |
+          echo "+ $HELM_CMD"
+          $HELM_CMD --timeout 5m
+          kubectl -n expense-tracker rollout status deployment -l app.kubernetes.io/name=expense-tracker --timeout=3m
+          kubectl -n expense-tracker get pods,svc,ingress,hpa
