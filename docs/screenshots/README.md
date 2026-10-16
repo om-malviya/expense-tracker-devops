@@ -130,7 +130,6 @@ Rows marked "" name the file that is about to be added; the row is updated when 
 | Rubric criterion | File(s) | What it shows | Captured |
 |---|---|---|---|
 | `README.md` in the project root | `../../README.md` | 16 sections: application, architecture, layout, running, API, tests, Docker, CI/CD, security, Terraform, Kubernetes/Helm, monitoring, troubleshooting, evidence, demo, lessons learned | 2026-10-16 |
-| Live demo script | `../DEMO_SCRIPT.md` | The 15-step walkthrough with the exact commands and URLs for this project | 2026-10-16 |
 | Failure simulation – wrong image tag | `m10-troubleshooting-broken-image.txt` / `.png` | `kubectl apply -f troubleshooting/broken-image.yaml`, new pods in `ImagePullBackOff`, `describe pod` -> `manifest unknown`, recovery with `helm upgrade --install` | |
 | Failure simulation – Service selector mismatch | `m10-troubleshooting-broken-service.txt` / `.png` | `kubectl apply -f troubleshooting/broken-service.yaml`, `get endpoints` -> `<none>`, 503 through the ingress, recovery with `helm upgrade --install` | |
 
@@ -153,3 +152,4 @@ scripts/capture-evidence.sh m2-pytest-v "cd backend && pytest -v"
 npx playwright screenshot --viewport-size=1440,900 --full-page \
   --wait-for-selector '.ledger-row .cell-title' http://localhost:3000 docs/screenshots/m1-app-dashboard.png
 ```
+

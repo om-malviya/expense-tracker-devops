@@ -114,7 +114,6 @@ Platform:
 ├── troubleshooting/                two deliberately broken manifests + the triage runbook
 ├── scripts/                        load-test.sh (HPA demo), capture-evidence.sh + render-terminal.py (evidence)
 ├── docs/screenshots/               every capture, indexed in docs/screenshots/README.md
-├── docs/DEMO_SCRIPT.md             the 15-step presentation script
 └── SECURITY.md                     the security gates, why they are configured that way, exceptions policy
 ```
 
@@ -551,7 +550,7 @@ The complete table (every file, one row per rubric criterion) is in
 | M7 Terraform | [`m7-terraform-init-validate.png`](docs/screenshots/m7-terraform-init-validate.png), [`m7-terraform-plan.png`](docs/screenshots/m7-terraform-plan.png), [`m7-terraform-plan-summary.png`](docs/screenshots/m7-terraform-plan-summary.png) – apply/console/destroy not available (section 10) |
 | M8 Kubernetes + Helm | [`m8-kubectl-get-pods.png`](docs/screenshots/m8-kubectl-get-pods.png), [`m8-kubectl-get-svc.png`](docs/screenshots/m8-kubectl-get-svc.png), [`m8-helm-list.png`](docs/screenshots/m8-helm-list.png), [`m8-app-via-ingress.png`](docs/screenshots/m8-app-via-ingress.png), [`m8-hpa.png`](docs/screenshots/m8-hpa.png) |
 | M9 Monitoring | [`m9-curl-metrics.png`](docs/screenshots/m9-curl-metrics.png), [`m9-prometheus-targets.png`](docs/screenshots/m9-prometheus-targets.png), [`m9-promql.png`](docs/screenshots/m9-promql.png), [`m9-grafana-dashboard.png`](docs/screenshots/m9-grafana-dashboard.png) |
-| M10 Documentation | this README, [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md), `m10-troubleshooting-*.png` |
+| M10 Documentation | this README, `m10-troubleshooting-*.png` |
 
 Git: 17 commits by Om Malviya, each describing one change
 ([`m3-git-log.txt`](docs/screenshots/m3-git-log.txt) was captured at commit 16; the 17th added the
@@ -564,8 +563,7 @@ LocalStack plan evidence). `.gitignore` excludes `.env`, `__pycache__`, `.venv`,
 
 The presentation follows the 15 steps from the course (Application -> API -> Database -> Git -> CI ->
 Docker -> Security -> Registry -> Terraform -> Kubernetes -> Helm -> Ingress -> HPA -> Monitoring ->
-Failure simulation). The exact commands, URLs, narration and timing for this project are in
-[`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md). The live part is: change one line in the frontend, commit,
+Failure simulation), using the commands documented in the sections above. The live part is: change one line in the frontend, commit,
 push, watch the pipeline go green, and deploy the new SHA with `helm upgrade --install`.
 
 ---
