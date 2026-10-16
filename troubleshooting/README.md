@@ -3,8 +3,14 @@
 Both scenarios assume the healthy release is installed (`helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml`). Each broken manifest overwrites one object of that release; the fix is always the same command, because Helm is my source of truth and re-applying the chart restores whatever I changed by hand:
 
 ```bash
-helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml
+helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --force-conflicts
 ```
+
+`--force-conflicts` matters on Helm 4: it applies server-side, and the `kubectl apply` that broke the object made
+`kubectl-client-side-apply` the *field manager* of the fields I changed. Without the flag Helm refuses to touch
+them (`Apply failed with N conflicts: conflicts with "kubectl-client-side-apply"`) and marks the release `failed`;
+with it Helm takes the fields back and the next revision is `deployed`. On Helm 3 the flag does not exist and the
+plain command is enough.
 
 The triage order I follow every time, before I guess at anything:
 
@@ -44,7 +50,7 @@ kubectl -n expense-tracker get deploy expense-tracker-backend -o jsonpath='{.spe
 kubectl -n expense-tracker rollout status deploy/expense-tracker-backend --timeout=30s
 ```
 
-The `describe` events say it all: `Failed to pull image "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist": ... manifest unknown` (or `403 Forbidden` / `unauthorized` when the package is private and no `imagePullSecret` is configured). `BackOff` means the kubelet is retrying with exponential back-off - it will never succeed on its own because the tag does not exist.
+The `describe` events say it all: `Failed to pull image "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist": ... manifest unknown` (containerd) / `... not found` (docker runtime), or `403 Forbidden` / `unauthorized` when the package is private and no `imagePullSecret` is configured). `BackOff` means the kubelet is retrying with exponential back-off - it will never succeed on its own because the tag does not exist.
 
 ### Root cause
 
@@ -53,8 +59,8 @@ The Deployment references a tag that CI never pushed. My pipeline only publishes
 ### Fix
 
 ```bash
-# the real fix: re-apply the chart with a tag that exists
-helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml
+# the real fix: re-apply the chart with a tag that exists (--force-conflicts: see the top of this file)
+helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --force-conflicts
 # emergency alternative while the pipeline is being fixed
 kubectl -n expense-tracker set image deploy/expense-tracker-backend backend=ghcr.io/om-malviya/expense-tracker-backend:latest
 kubectl -n expense-tracker rollout status deploy/expense-tracker-backend
@@ -97,7 +103,7 @@ A Service only forwards to pods whose labels satisfy *every* key in `spec.select
 ### Fix
 
 ```bash
-helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml
+helm upgrade --install expense-tracker helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --force-conflicts
 # or patch in place
 kubectl -n expense-tracker patch svc expense-tracker-backend -p '{"spec":{"selector":{"app.kubernetes.io/component":"backend"}}}'
 kubectl -n expense-tracker get endpoints expense-tracker-backend      # must now list <pod-ip>:8000 per pod
