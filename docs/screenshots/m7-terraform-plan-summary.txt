@@ -1,0 +1,121 @@
+$ terraform/localstack/plan.sh   # summary: resource addresses only, extracted from m7-terraform-plan.txt (full 1830-line output)
+
+# Data sources resolved by LocalStack 4.6 community (STS/IAM) or locally by the provider:
+  module.eks.module.eks_managed_node_group["main"].data.aws_partition.current: Read complete after 0s [id=aws]
+  module.eks.data.aws_partition.current[0]: Read complete after 0s [id=aws]
+  module.ebs_csi_irsa.data.aws_region.current: Read complete after 0s [id=ap-south-1]
+  module.eks.data.aws_iam_policy_document.assume_role_policy[0]: Read complete after 0s [id=2830595799]
+  module.eks.module.eks_managed_node_group["main"].data.aws_iam_policy_document.assume_role_policy[0]: Read complete after 0s [id=2560088296]
+  module.eks.module.kms.data.aws_partition.current[0]: Read complete after 0s [id=aws]
+  module.ebs_csi_irsa.data.aws_partition.current: Read complete after 0s [id=aws]
+  module.eks.data.aws_iam_policy_document.custom[0]: Read complete after 0s [id=513122117]
+  module.ebs_csi_irsa.data.aws_iam_policy_document.ebs_csi[0]: Read complete after 0s [id=435063099]
+  module.ebs_csi_irsa.data.aws_caller_identity.current: Read complete after 0s [id=000000000000]
+  module.eks.data.aws_caller_identity.current[0]: Read complete after 0s [id=000000000000]
+  module.eks.data.aws_iam_session_context.current[0]: Read complete after 0s [id=arn:aws:iam::000000000000:root]
+  module.eks.module.kms.data.aws_caller_identity.current[0]: Read complete after 0s [id=000000000000]
+  module.eks.module.eks_managed_node_group["main"].data.aws_caller_identity.current: Read complete after 0s [id=000000000000]
+
+# Data sources deferred to apply time (depend on the not-yet-created cluster):
+  # module.ebs_csi_irsa.data.aws_iam_policy_document.this[0] will be read during apply
+  # module.eks.data.aws_eks_addon_version.this["aws-ebs-csi-driver"] will be read during apply
+  # module.eks.data.aws_eks_addon_version.this["coredns"] will be read during apply
+  # module.eks.data.aws_eks_addon_version.this["kube-proxy"] will be read during apply
+  # module.eks.data.aws_eks_addon_version.this["vpc-cni"] will be read during apply
+  # module.eks.data.tls_certificate.this[0] will be read during apply
+  # module.eks.module.kms.data.aws_iam_policy_document.this[0] will be read during apply
+
+# Resources that will be created:
+  # module.ebs_csi_irsa.aws_iam_policy.ebs_csi[0] will be created
+  # module.ebs_csi_irsa.aws_iam_role.this[0] will be created
+  # module.ebs_csi_irsa.aws_iam_role_policy_attachment.ebs_csi[0] will be created
+  # module.eks.aws_cloudwatch_log_group.this[0] will be created
+  # module.eks.aws_eks_access_entry.this["cluster_creator"] will be created
+  # module.eks.aws_eks_access_policy_association.this["cluster_creator_admin"] will be created
+  # module.eks.aws_eks_addon.this["aws-ebs-csi-driver"] will be created
+  # module.eks.aws_eks_addon.this["coredns"] will be created
+  # module.eks.aws_eks_addon.this["kube-proxy"] will be created
+  # module.eks.aws_eks_addon.this["vpc-cni"] will be created
+  # module.eks.aws_eks_cluster.this[0] will be created
+  # module.eks.aws_iam_openid_connect_provider.oidc_provider[0] will be created
+  # module.eks.aws_iam_policy.cluster_encryption[0] will be created
+  # module.eks.aws_iam_policy.custom[0] will be created
+  # module.eks.aws_iam_role.this[0] will be created
+  # module.eks.aws_iam_role_policy_attachment.cluster_encryption[0] will be created
+  # module.eks.aws_iam_role_policy_attachment.custom[0] will be created
+  # module.eks.aws_iam_role_policy_attachment.this["AmazonEKSClusterPolicy"] will be created
+  # module.eks.aws_iam_role_policy_attachment.this["AmazonEKSVPCResourceController"] will be created
+  # module.eks.aws_security_group.cluster[0] will be created
+  # module.eks.aws_security_group.node[0] will be created
+  # module.eks.aws_security_group_rule.cluster["ingress_nodes_443"] will be created
+  # module.eks.aws_security_group_rule.node["egress_all"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_cluster_443"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_cluster_4443_webhook"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_cluster_6443_webhook"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_cluster_8443_webhook"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_cluster_9443_webhook"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_cluster_kubelet"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_nodes_ephemeral"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_self_coredns_tcp"] will be created
+  # module.eks.aws_security_group_rule.node["ingress_self_coredns_udp"] will be created
+  # module.eks.time_sleep.this[0] will be created
+  # module.vpc.aws_default_network_acl.this[0] will be created
+  # module.vpc.aws_default_route_table.default[0] will be created
+  # module.vpc.aws_default_security_group.this[0] will be created
+  # module.vpc.aws_eip.nat[0] will be created
+  # module.vpc.aws_internet_gateway.this[0] will be created
+  # module.vpc.aws_nat_gateway.this[0] will be created
+  # module.vpc.aws_route.private_nat_gateway[0] will be created
+  # module.vpc.aws_route.public_internet_gateway[0] will be created
+  # module.vpc.aws_route_table.private[0] will be created
+  # module.vpc.aws_route_table.public[0] will be created
+  # module.vpc.aws_route_table_association.private[0] will be created
+  # module.vpc.aws_route_table_association.private[1] will be created
+  # module.vpc.aws_route_table_association.public[0] will be created
+  # module.vpc.aws_route_table_association.public[1] will be created
+  # module.vpc.aws_subnet.private[0] will be created
+  # module.vpc.aws_subnet.private[1] will be created
+  # module.vpc.aws_subnet.public[0] will be created
+  # module.vpc.aws_subnet.public[1] will be created
+  # module.vpc.aws_vpc.this[0] will be created
+  # module.eks.module.eks_managed_node_group["main"].aws_eks_node_group.this[0] will be created
+  # module.eks.module.eks_managed_node_group["main"].aws_iam_role.this[0] will be created
+  # module.eks.module.eks_managed_node_group["main"].aws_iam_role_policy_attachment.this["AmazonEC2ContainerRegistryReadOnly"] will be created
+  # module.eks.module.eks_managed_node_group["main"].aws_iam_role_policy_attachment.this["AmazonEKSWorkerNodePolicy"] will be created
+  # module.eks.module.eks_managed_node_group["main"].aws_iam_role_policy_attachment.this["AmazonEKS_CNI_Policy"] will be created
+  # module.eks.module.eks_managed_node_group["main"].aws_launch_template.this[0] will be created
+  # module.eks.module.kms.aws_kms_alias.this["cluster"] will be created
+  # module.eks.module.kms.aws_kms_key.this[0] will be created
+  # module.eks.module.eks_managed_node_group["main"].module.user_data.null_resource.validate_cluster_service_cidr will be created
+
+Plan: 61 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + cluster_endpoint          = (known after apply)
+  + cluster_name              = "expense-tracker-dev-eks"
+  + cluster_security_group_id = (known after apply)
+  + cluster_version           = "1.31"
+  + configure_kubectl         = "aws eks update-kubeconfig --region ap-south-1 --name expense-tracker-dev-eks"
+  + ebs_csi_role_arn          = (known after apply)
+  + node_group                = {
+      + desired_size = 2
+      + instances    = [
+          + "t3.medium",
+        ]
+      + max_size     = 3
+      + min_size     = 1
+      + name         = (known after apply)
+    }
+  + private_subnet_ids        = [
+      + (known after apply),
+      + (known after apply),
+    ]
+  + public_subnet_ids         = [
+      + (known after apply),
+      + (known after apply),
+    ]
+  + vpc_id                    = (known after apply)
+
+─────────────────────────────────────────────────────────────────────────────
+
+Saved the plan to: localstack.tfplan

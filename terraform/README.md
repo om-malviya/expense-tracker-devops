@@ -104,3 +104,64 @@ and policy attachments, 2x `aws_security_group`, `aws_eks_node_group`, `aws_laun
 
 `terraform destroy` reverses the same list (`Plan: 0 to add, 0 to change, 6x to destroy`); the node group
 and the control plane take the longest (~4 and ~2 minutes).
+
+## Plan evidence without an AWS account
+
+I did not have an AWS account while building this project, so I could not run `terraform apply`
+or `terraform destroy`. Everything that *can* be proven without one is captured in `docs/screenshots/`:
+
+| Evidence | What I ran | Where |
+|---|---|---|
+| init + fmt + validate | `terraform init -backend=false`, `terraform fmt -check -recursive`, `terraform validate` (real downloads of the vpc/eks/iam/kms modules and the 5 providers; exit 0) | `docs/screenshots/m7-terraform-init-validate.{txt,png}` |
+| full `terraform plan` | `terraform/localstack/plan.sh` -> `terraform init -reconfigure` + `terraform plan -var-file=terraform.tfvars.example -out=localstack.tfplan` against a **LocalStack 4.6 community** container (`docker run -d --name localstack -p 4566:4566 localstack/localstack:4.6`) | `docs/screenshots/m7-terraform-plan.txt` (all 1830 lines), `m7-terraform-plan.png` (first 60 lines + result), `m7-terraform-plan-summary.{txt,png}` (the 61 resource addresses + the `Plan:` line) |
+
+Result of the plan:
+
+```text
+Plan: 61 to add, 0 to change, 0 to destroy.
+```
+
+### How the plan works without credentials
+
+`terraform plan` has to read data sources before it can compute the diff, and some of those are real
+API calls (`sts:GetCallerIdentity`, and `iam:GetRole` through `aws_iam_session_context`, which the EKS
+module uses to make the caller the cluster admin). Without credentials the plan stops at
+`No valid credential sources found`. `terraform/localstack/plan.sh` therefore drops a temporary
+`zz_localstack_override.tf` next to `providers.tf` (dummy `test` keys, `skip_*` checks on, every
+`endpoints { ... }` entry pointing at `http://localhost:4566`), runs init + plan, and removes the
+override, the saved plan and any lock-file change again through an `EXIT` trap. The committed
+`.terraform.lock.hcl` was byte-identical before and after (`git diff --stat` empty), and `*_override.tf`
+is git-ignored so the override can never be committed by accident. Details: `terraform/localstack/README.md`.
+
+### What LocalStack can and cannot emulate
+
+| | LocalStack 4.6 community |
+|---|---|
+| **Emulated and used by the plan** | STS (`aws_caller_identity` -> account `000000000000`), IAM (`aws_iam_session_context` -> `arn:aws:iam::000000000000:root`) |
+| **Computed locally, no API** | `aws_partition`, `aws_region`, `aws_iam_policy_document` |
+| **Not emulated** | EKS (cluster, node group, add-ons, access entries, OIDC provider) is Pro-only. The plan does not need it: the four `aws_eks_addon_version` reads depend on the cluster resource and are deferred (`will be read during apply`) |
+| **Why apply is impossible** | Even the services LocalStack has (EC2, KMS, IAM) are only partially emulated, and EKS is missing entirely, so `apply` would either fail or create fake resources. The override exists for `plan` only |
+
+The `latest` LocalStack image (2026.x) exits with `License activation failed` unless `LOCALSTACK_AUTH_TOKEN`
+is set; the 4.x tags are the last licence-free community builds, which is why `plan.sh` documents `4.6`.
+
+### What still requires a real account (and the exact commands)
+
+`terraform apply`, `terraform destroy` and the AWS console screenshots (VPC, EKS cluster, node group,
+NAT gateway) cannot be faked and are not included. When an account is available this is the complete
+sequence, each line producing one piece of evidence via `scripts/capture-evidence.sh`:
+
+```bash
+aws configure                                           # or AWS_PROFILE=... / aws sso login
+cd terraform && cp terraform.tfvars.example terraform.tfvars
+
+scripts/capture-evidence.sh m7-terraform-plan-aws  "cd terraform && terraform init && terraform plan -no-color -out=tfplan"
+scripts/capture-evidence.sh m7-terraform-apply     "cd terraform && terraform apply -no-color tfplan"          # 12-15 min
+scripts/capture-evidence.sh m7-terraform-outputs   "cd terraform && terraform output"
+scripts/capture-evidence.sh m7-kubectl-get-nodes   "aws eks update-kubeconfig --region ap-south-1 --name expense-tracker-dev-eks && kubectl get nodes -o wide"
+# console screenshots: VPC -> Your VPCs / Subnets / NAT gateways, EKS -> Clusters -> expense-tracker-dev-eks -> Compute
+scripts/capture-evidence.sh m7-terraform-destroy   "cd terraform && terraform destroy -no-color -auto-approve"  # Plan: 0 to add, 0 to change, 61 to destroy.
+```
+
+After the destroy I would check the console (EKS, EC2 > NAT gateways, Elastic IPs, Load balancers,
+EBS volumes) and Cost Explorer to make sure nothing billable is left behind.
