@@ -28,7 +28,7 @@ SARIF for the GitHub Security tab; that pass is reporting only and never fails t
 * **The ignore list is passed via the action input** (`trivyignores:`), not a relative `ignorefile:` key
   inside the config, because the relative path does not resolve consistently between local runs and CI.
 * **Gitleaks uses `fetch-depth: 0`**, so a secret that was committed and removed again is still caught.
-  The project rule for `postgresql+psycopg://user:password@host` uses a non-capturing group and the
+  The project rule for `postgresql+psycopg://<user>:<password>@host` uses a non-capturing group and the
   allow-list uses `regexTarget = "line"`; with a capturing group Gitleaks reported `+psycopg` as the
   secret and the allow-list could never match the documented placeholder.
 * **Placeholders are allow-listed by value and by path**, not by disabling the rule, so a real password
