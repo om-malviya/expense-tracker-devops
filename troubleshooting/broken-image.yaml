@@ -1,0 +1,89 @@
+# BROKEN ON PURPOSE - troubleshooting scenario 1: image tag that does not exist -> ImagePullBackOff
+#
+# This is a copy of the backend Deployment that the Helm chart renders (release "expense-tracker",
+# namespace "expense-tracker"), with exactly one change: the image tag. Apply it over the healthy
+# release, watch the new ReplicaSet fail to pull, then roll back with `helm upgrade` (see README.md).
+#
+#   kubectl apply -f troubleshooting/broken-image.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: expense-tracker-backend
+  namespace: expense-tracker
+  labels:
+    app.kubernetes.io/name: expense-tracker
+    app.kubernetes.io/instance: expense-tracker
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: expense-tracker
+spec:
+  selector:
+    matchLabels:
+      app: expense-tracker-backend
+      app.kubernetes.io/name: expense-tracker
+      app.kubernetes.io/instance: expense-tracker
+      app.kubernetes.io/component: backend
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0     # this is why the OLD pods keep serving while the new ones are stuck
+  template:
+    metadata:
+      labels:
+        app: expense-tracker-backend
+        app.kubernetes.io/name: expense-tracker
+        app.kubernetes.io/instance: expense-tracker
+        app.kubernetes.io/component: backend
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: backend
+          # BUG: this tag was never built or pushed. CI only publishes <git-sha> and latest.
+          image: ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: expense-tracker-config
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: expense-tracker-secrets
+                  key: DATABASE_URL
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 24
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]

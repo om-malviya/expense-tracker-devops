@@ -1,0 +1,28 @@
+# BROKEN ON PURPOSE - troubleshooting scenario 2: Service selector mismatch -> no endpoints
+#
+# Same name and ports as the backend Service the Helm chart renders; only the selector is wrong.
+# The pods stay Running and Ready, but nothing routes to them: the Endpoints object is empty
+# and the ingress answers 502/503 on /api. Roll back with `helm upgrade` (see README.md).
+#
+#   kubectl apply -f troubleshooting/broken-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: expense-tracker-backend
+  namespace: expense-tracker
+  labels:
+    app.kubernetes.io/name: expense-tracker
+    app.kubernetes.io/instance: expense-tracker
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: expense-tracker
+spec:
+  type: ClusterIP
+  selector:
+    # BUG: the pods are labelled app.kubernetes.io/component=backend and app=expense-tracker-backend.
+    # "api" matches nothing, so the Service has no endpoints.
+    app.kubernetes.io/name: expense-tracker
+    app.kubernetes.io/component: api
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
