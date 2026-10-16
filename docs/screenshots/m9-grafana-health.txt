@@ -1,0 +1,63 @@
+$ echo '# kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 13000:80 is running in another terminal' && echo && echo '$ curl -s localhost:13000/api/health' && curl -s localhost:13000/api/health && echo && echo '$ kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath={.data.admin-user} | base64 -d   # password: see monitoring/kube-prometheus-stack-values.yaml' && kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath='{.data.admin-user}' | base64 -d && echo && echo && echo '$ curl -s -u admin:$GRAFANA_PASSWORD "localhost:13000/api/search?query=Expense" | jq' && curl -s -u admin:grafana-local-only 'localhost:13000/api/search?query=Expense' | jq && echo '$ curl -s -u admin:$GRAFANA_PASSWORD localhost:13000/api/dashboards/uid/expense-tracker | jq "{title: .dashboard.title, uid: .dashboard.uid, panels: [.dashboard.panels[].title], provisioned: .meta.provisioned}"' && curl -s -u admin:grafana-local-only localhost:13000/api/dashboards/uid/expense-tracker | jq '{title: .dashboard.title, uid: .dashboard.uid, panels: [.dashboard.panels[].title], provisioned: .meta.provisioned}' && echo '$ curl -s -u admin:$GRAFANA_PASSWORD localhost:13000/api/datasources | jq ".[] | {name, type, isDefault}"' && curl -s -u admin:grafana-local-only localhost:13000/api/datasources | jq '.[] | {name, type, isDefault}' && echo '$ kubectl get cm -n monitoring -l grafana_dashboard=1' && kubectl get cm -n monitoring -l grafana_dashboard=1 | grep -E 'NAME|expense'
+# kubectl -n monitoring port-forward svc/kube-prometheus-stack-grafana 13000:80 is running in another terminal
+
+$ curl -s localhost:13000/api/health
+{
+  "database": "ok",
+  "version": "13.2.4",
+  "commit": "0e79aef9d91abf3bdadae9af15763029072fb45b"
+}
+$ kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath={.data.admin-user} | base64 -d   # password: see monitoring/kube-prometheus-stack-values.yaml
+admin
+
+$ curl -s -u admin:$GRAFANA_PASSWORD "localhost:13000/api/search?query=Expense" | jq
+[
+  {
+    "id": 3426785071226880,
+    "uid": "expense-tracker",
+    "orgId": 1,
+    "title": "Expense Tracker - API overview",
+    "uri": "db/expense-tracker-api-overview",
+    "url": "/d/expense-tracker/expense-tracker-api-overview",
+    "slug": "",
+    "type": "dash-db",
+    "tags": [
+      "expense-tracker",
+      "fastapi"
+    ],
+    "isStarred": false,
+    "description": "Live HTTP metrics of the Expense Tracker FastAPI backend scraped from /metrics, plus pod and HPA state from kube-state-metrics.",
+    "sortMeta": 0,
+    "isDeleted": false
+  }
+]
+$ curl -s -u admin:$GRAFANA_PASSWORD localhost:13000/api/dashboards/uid/expense-tracker | jq "{title: .dashboard.title, uid: .dashboard.uid, panels: [.dashboard.panels[].title], provisioned: .meta.provisioned}"
+{
+  "title": "Expense Tracker - API overview",
+  "uid": "expense-tracker",
+  "panels": [
+    "Requests / s",
+    "5xx error ratio (5m)",
+    "p95 latency (5m)",
+    "Backend pods up",
+    "Requests / s by handler",
+    "Latency p50 / p95 / p99",
+    "Responses by status class",
+    "Backend HPA replicas (current vs desired vs max)"
+  ],
+  "provisioned": true
+}
+$ curl -s -u admin:$GRAFANA_PASSWORD localhost:13000/api/datasources | jq ".[] | {name, type, isDefault}"
+{
+  "name": "Alertmanager",
+  "type": "alertmanager",
+  "isDefault": false
+}
+{
+  "name": "Prometheus",
+  "type": "prometheus",
+  "isDefault": true
+}
+$ kubectl get cm -n monitoring -l grafana_dashboard=1
+NAME                                                      DATA   AGE
+expense-tracker-grafana-dashboard                         1      4m45s

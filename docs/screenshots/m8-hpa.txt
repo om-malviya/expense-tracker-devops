@@ -1,0 +1,84 @@
+$ kubectl get hpa -n expense-tracker; scripts/load-test.sh http://<backend ClusterIP>:8000 180 20 &; kubectl get hpa -n expense-tracker -w; kubectl top pods -n expense-tracker
+$ kubectl get hpa -n expense-tracker
+NAME                      REFERENCE                            TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 22%/60%   2         4         2          5m24s
+
+# Load: scripts/load-test.sh run on the k3s node itself (docker --net=host shares the node network,
+# so the backend Service ClusterIP 10.43.83.197 is reachable and kube-proxy spreads requests over every backend pod).
+$ docker run --rm --net=host -v "$PWD/scripts/load-test.sh:/load-test.sh:ro" alpine:3.20 \
+      sh -c 'apk add -q bash curl && bash /load-test.sh http://10.43.83.197:8000 180 20' &
+
+$ kubectl get hpa -n expense-tracker -w      # watched for 4 minutes while the load runs
+NAME                      REFERENCE                            TARGETS        MINPODS   MAXPODS   REPLICAS   AGE
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 22%/60%   2         4         2          5m24s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 18%/60%   2         4         2          5m30s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 346%/60%   2         4         2          5m45s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 528%/60%   2         4         4          6m
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 499%/60%   2         4         4          6m15s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 512%/60%   2         4         4          6m30s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 453%/60%   2         4         4          6m45s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 403%/60%   2         4         4          7m
+
+$ kubectl top pods -n expense-tracker        # ~110 s into the load
+NAME                                        CPU(cores)   MEMORY(bytes)   
+expense-tracker-backend-6567fd84b8-4h4gh    146m         162Mi           
+expense-tracker-backend-6567fd84b8-5zf7s    247m         179Mi           
+expense-tracker-backend-6567fd84b8-qjv5h    173m         195Mi           
+expense-tracker-backend-6567fd84b8-swfpv    110m         156Mi           
+expense-tracker-frontend-5789cf58cd-2hlst   1m           29Mi            
+expense-tracker-frontend-5789cf58cd-gw4bz   1m           22Mi            
+expense-tracker-postgres-0                  37m          96Mi            
+
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 338%/60%   2         4         4          7m15s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 437%/60%   2         4         4          7m30s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 418%/60%   2         4         4          7m45s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 374%/60%   2         4         4          8m
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 445%/60%   2         4         4          8m16s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 416%/60%   2         4         4          8m31s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 136%/60%   2         4         4          8m46s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 31%/60%    2         4         4          9m1s
+expense-tracker-backend   Deployment/expense-tracker-backend   cpu: 24%/60%    2         4         4          9m16s
+
+# load-test.sh output:
+Load test -> http://10.43.83.197:8000  duration=180s  concurrency=20
+Endpoints: /api/expenses /api/expenses/summary /api/expenses?category=food /api/expenses/summary
+Started 15:05:58; press Ctrl-C to stop early.
+  ... 170s remaining (15:06:08)
+  ... 160s remaining (15:06:18)
+  ... 150s remaining (15:06:28)
+  ... 140s remaining (15:06:38)
+  ... 130s remaining (15:06:48)
+  ... 120s remaining (15:06:58)
+  ... 110s remaining (15:07:08)
+  ... 100s remaining (15:07:18)
+  ... 90s remaining (15:07:28)
+  ... 80s remaining (15:07:38)
+  ... 69s remaining (15:07:49)
+  ... 59s remaining (15:07:59)
+  ... 49s remaining (15:08:09)
+  ... 39s remaining (15:08:19)
+  ... 29s remaining (15:08:29)
+  ... 19s remaining (15:08:39)
+  ... 9s remaining (15:08:49)
+Finished 15:08:59: 9000 requests in 180s (~50 req/s), 9000 OK, 0 failed
+
+$ kubectl get pods -n expense-tracker -l app.kubernetes.io/component=backend
+NAME                                       READY   STATUS    RESTARTS   AGE
+expense-tracker-backend-6567fd84b8-4h4gh   1/1     Running   0          3m39s
+expense-tracker-backend-6567fd84b8-5zf7s   1/1     Running   0          9m9s
+expense-tracker-backend-6567fd84b8-qjv5h   1/1     Running   0          9m24s
+expense-tracker-backend-6567fd84b8-swfpv   1/1     Running   0          3m39s
+
+$ kubectl describe hpa expense-tracker-backend -n expense-tracker | tail -12
+  AbleToScale     True    ScaleDownStabilized  recent recommendations were higher than current one, applying the highest recent recommendation
+  ScalingActive   True    ValidMetricFound     the HPA was able to successfully calculate a replica count from cpu resource utilization (percentage of request)
+  ScalingLimited  False   DesiredWithinRange   the desired count is within the acceptable range
+Events:
+  Type     Reason                        Age                    From                       Message
+  ----     ------                        ----                   ----                       -------
+  Normal   SuccessfulRescale             9m9s                   horizontal-pod-autoscaler  New size: 2; reason: Current number of replicas below Spec.MinReplicas
+  Warning  FailedGetResourceMetric       8m39s (x2 over 8m54s)  horizontal-pod-autoscaler  failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+  Warning  FailedComputeMetricsReplicas  8m39s (x2 over 8m54s)  horizontal-pod-autoscaler  invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: unable to get metrics for resource cpu: no metrics returned from resource metrics API
+  Warning  FailedGetResourceMetric       7m54s (x3 over 8m24s)  horizontal-pod-autoscaler  failed to get cpu utilization: did not receive metrics for targeted pods (pods might be unready)
+  Warning  FailedComputeMetricsReplicas  7m54s (x3 over 8m24s)  horizontal-pod-autoscaler  invalid metrics (1 invalid out of 1), first error is: failed to get cpu resource metric value: failed to get cpu utilization: did not receive metrics for targeted pods (pods might be unready)
+  Normal   SuccessfulRescale             3m39s                  horizontal-pod-autoscaler  New size: 4; reason: cpu resource utilization (percentage of request) above target

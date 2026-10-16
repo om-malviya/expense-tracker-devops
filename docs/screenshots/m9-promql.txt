@@ -1,0 +1,69 @@
+$ curl -s localhost:19090/api/v1/query --data-urlencode 'query=<PromQL>' | jq   (one call per query below)
+# kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 19090:9090 is running in another terminal
+
+$ promql> up{namespace="expense-tracker"}
+  {"container":"backend","endpoint":"http","instance":"10.42.0.10:8000","job":"expense-tracker-backend","namespace":"expense-tracker","pod":"expense-tracker-backend-6567fd84b8-qjv5h","service":"expense-tracker-backend"}  =>  1
+  {"container":"backend","endpoint":"http","instance":"10.42.0.24:8000","job":"expense-tracker-backend","namespace":"expense-tracker","pod":"expense-tracker-backend-6567fd84b8-4h4gh","service":"expense-tracker-backend"}  =>  1
+  {"container":"backend","endpoint":"http","instance":"10.42.0.25:8000","job":"expense-tracker-backend","namespace":"expense-tracker","pod":"expense-tracker-backend-6567fd84b8-swfpv","service":"expense-tracker-backend"}  =>  1
+  {"container":"backend","endpoint":"http","instance":"10.42.0.15:8000","job":"expense-tracker-backend","namespace":"expense-tracker","pod":"expense-tracker-backend-6567fd84b8-5zf7s","service":"expense-tracker-backend"}  =>  1
+
+$ promql> sum(rate(http_requests_total{namespace="expense-tracker"}[5m])) by (handler)
+  {"handler":"/health"}  =>  0.10714866666666667
+  {"handler":"/ready"}  =>  0.1683764761904762
+  {"handler":"none"}  =>  0
+  {"handler":"/openapi.json"}  =>  0
+  {"handler":"/api/expenses/summary"}  =>  3.438366920634921
+  {"handler":"/api/expenses"}  =>  3.360027619047619
+  {"handler":"/metrics"}  =>  0.09714866666666667
+
+$ promql> sum(rate(http_requests_total{namespace="expense-tracker", handler=~"/api.*"}[5m])) by (method, status)
+  {"method":"GET","status":"2xx"}  =>  6.798900253968254
+  {"method":"POST","status":"2xx"}  =>  0
+
+$ promql> histogram_quantile(0.95, sum by (le) (rate(http_request_duration_seconds_bucket{namespace="expense-tracker", handler=~"/api.*"}[5m])))
+  {}  =>  1
+
+$ promql> histogram_quantile(0.50, sum by (le) (rate(http_request_duration_seconds_bucket{namespace="expense-tracker", handler=~"/api.*"}[5m])))
+  {}  =>  0.0934062975361157
+
+$ promql> (sum(rate(http_requests_total{namespace="expense-tracker", handler=~"/api.*", status=~"5.."}[5m])) or vector(0)) / sum(rate(http_requests_total{namespace="expense-tracker", handler=~"/api.*"}[5m]))
+  {}  =>  0
+
+$ promql> kube_horizontalpodautoscaler_status_current_replicas{namespace="expense-tracker"}
+  {"container":"kube-state-metrics","endpoint":"http","horizontalpodautoscaler":"expense-tracker-backend","instance":"10.42.0.18:8080","job":"kube-state-metrics","namespace":"expense-tracker","pod":"kube-prometheus-stack-kube-state-metrics-7757df4df-gkrp5","service":"kube-prometheus-stack-kube-state-metrics"}  =>  4
+
+$ promql> sum(kube_pod_container_status_restarts_total{namespace="expense-tracker"}) by (pod)
+  {"pod":"expense-tracker-backend-6567fd84b8-qjv5h"}  =>  0
+  {"pod":"expense-tracker-frontend-5789cf58cd-2hlst"}  =>  0
+  {"pod":"expense-tracker-frontend-5789cf58cd-gw4bz"}  =>  0
+  {"pod":"expense-tracker-backend-6567fd84b8-5zf7s"}  =>  0
+  {"pod":"expense-tracker-postgres-0"}  =>  0
+  {"pod":"expense-tracker-backend-6567fd84b8-4h4gh"}  =>  0
+  {"pod":"expense-tracker-backend-6567fd84b8-swfpv"}  =>  0
+
+$ curl -s localhost:19090/api/v1/alerts | jq ".data.alerts[] | {alert: .labels.alertname, state, value}"
+{
+  "alert": "KubeHpaMaxedOut",
+  "state": "pending",
+  "value": "4e+00"
+}
+{
+  "alert": "ExpenseTrackerHighLatencyP95",
+  "state": "pending",
+  "value": "1e+00"
+}
+{
+  "alert": "Watchdog",
+  "state": "firing",
+  "value": "1e+00"
+}
+{
+  "alert": "InfoInhibitor",
+  "state": "firing",
+  "value": "1e+00"
+}
+{
+  "alert": "ExpenseTrackerHpaAtMax",
+  "state": "pending",
+  "value": "4e+00"
+}

@@ -1,0 +1,17 @@
+$ kubectl get pods -n expense-tracker -o wide && echo && kubectl get deploy,statefulset,pvc -n expense-tracker
+NAME                                        READY   STATUS    RESTARTS   AGE   IP           NODE     NOMINATED NODE   READINESS GATES
+expense-tracker-backend-6567fd84b8-5zf7s    1/1     Running   0          77s   10.42.0.15   colima   <none>           <none>
+expense-tracker-backend-6567fd84b8-qjv5h    1/1     Running   0          92s   10.42.0.10   colima   <none>           <none>
+expense-tracker-frontend-5789cf58cd-2hlst   1/1     Running   0          92s   10.42.0.13   colima   <none>           <none>
+expense-tracker-frontend-5789cf58cd-gw4bz   1/1     Running   0          92s   10.42.0.12   colima   <none>           <none>
+expense-tracker-postgres-0                  1/1     Running   0          92s   10.42.0.14   colima   <none>           <none>
+
+NAME                                       READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/expense-tracker-backend    2/2     2            2           92s
+deployment.apps/expense-tracker-frontend   2/2     2            2           92s
+
+NAME                                        READY   AGE
+statefulset.apps/expense-tracker-postgres   1/1     92s
+
+NAME                                                    STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS   VOLUMEATTRIBUTESCLASS   AGE
+persistentvolumeclaim/data-expense-tracker-postgres-0   Bound    pvc-5249f561-2f3b-4bc7-abc1-282e51ca0331   1Gi        RWO            local-path     <unset>                 92s

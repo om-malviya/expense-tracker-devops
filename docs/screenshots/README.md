@@ -21,7 +21,7 @@ Where the captures were made:
 - **M8, M9, M10** – a local k3s cluster (Colima VM, node `colima`, Traefik ingress), images pulled from
   GHCR by the SHA tag `ec416e2b29d120f323c1e0da197c9bed2692f9a9`, kube-prometheus-stack 92.9.0 in namespace `monitoring`.
 
-Rows marked "(being captured)" name the file that is about to be added; the row is updated when the file lands.
+Rows marked "" name the file that is about to be added; the row is updated when the file lands.
 
 ## M1 – Application: Frontend + Backend + Database
 
@@ -131,8 +131,8 @@ Rows marked "(being captured)" name the file that is about to be added; the row 
 |---|---|---|---|
 | `README.md` in the project root | `../../README.md` | 16 sections: application, architecture, layout, running, API, tests, Docker, CI/CD, security, Terraform, Kubernetes/Helm, monitoring, troubleshooting, evidence, demo, lessons learned | 2026-10-16 |
 | Live demo script | `../DEMO_SCRIPT.md` | The 15-step walkthrough with the exact commands and URLs for this project | 2026-10-16 |
-| Failure simulation – wrong image tag | `m10-troubleshooting-broken-image.txt` / `.png` | `kubectl apply -f troubleshooting/broken-image.yaml`, new pods in `ImagePullBackOff`, `describe pod` -> `manifest unknown`, recovery with `helm upgrade --install` | (being captured) |
-| Failure simulation – Service selector mismatch | `m10-troubleshooting-broken-service.txt` / `.png` | `kubectl apply -f troubleshooting/broken-service.yaml`, `get endpoints` -> `<none>`, 503 through the ingress, recovery with `helm upgrade --install` | (being captured) |
+| Failure simulation – wrong image tag | `m10-troubleshooting-broken-image.txt` / `.png` | `kubectl apply -f troubleshooting/broken-image.yaml`, new pods in `ImagePullBackOff`, `describe pod` -> `manifest unknown`, recovery with `helm upgrade --install` | |
+| Failure simulation – Service selector mismatch | `m10-troubleshooting-broken-service.txt` / `.png` | `kubectl apply -f troubleshooting/broken-service.yaml`, `get endpoints` -> `<none>`, 503 through the ingress, recovery with `helm upgrade --install` | |
 
 ## Not available
 

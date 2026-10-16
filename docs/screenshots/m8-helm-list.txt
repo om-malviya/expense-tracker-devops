@@ -1,0 +1,5 @@
+$ helm list -n expense-tracker && echo && helm status expense-tracker -n expense-tracker --show-resources | head -60 && echo && helm get values expense-tracker -n expense-tracker
+NAME           	NAMESPACE      	REVISION	UPDATED                             	STATUS  	CHART                	APP VERSION
+expense-tracker	expense-tracker	1       	2026-10-16 20:30:31.751716 +0530 IST	deployed	expense-tracker-1.0.0	1.0.0      
+
+Error: unknown flag: --show-resources

@@ -1,0 +1,68 @@
+$ kubectl get ingress -n expense-tracker; curl -H 'Host: expense.local' http://localhost/api/expenses/summary; curl -H 'Host: expense.local' http://localhost/; curl -X POST ... /api/expenses (x3)
+# Ingress object + the Traefik controller that serves it (k3s servicelb binds node port 80)
+NAME              CLASS     HOSTS           ADDRESS       PORTS   AGE
+expense-tracker   traefik   expense.local   192.168.5.1   80      3m47s
+Rules:
+  Host           Path  Backends
+  ----           ----  --------
+  expense.local  
+                 /api   expense-tracker-backend:8000 (10.42.0.15:8000,10.42.0.10:8000)
+                 /      expense-tracker-frontend:80 (10.42.0.13:8080,10.42.0.12:8080)
+Annotations:     meta.helm.sh/release-name: expense-tracker
+NAME      TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)                      AGE
+traefik   LoadBalancer   10.43.95.189   192.168.5.1   80:31890/TCP,443:31418/TCP   65s
+
+# /api/* -> backend Service :8000 (Host header = Ingress rule, port 80 forwarded from the k3s node)
+HTTP/1.1 200 OK
+Content-Type: application/json
+{"total":0.0,"count":0,"by_category":[],"by_month":[{"month":"2026-05","total":0.0},{"month":"2026-06","total":0.0},{"month":"2026-07","total":0.0},{"month":"2026-08","total":0.0},{"month":"2026-09","total":0.0},{"month":"2026-10","total":0.0}],"top_category":null,"this_month_total":0.0,"average_per_day_this_month":0.0}
+
+# / -> frontend Service :80 (nginx-unprivileged on 8080)
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+# Create three expenses THROUGH the ingress
+{"id":1,"title":"Groceries - weekly shop","amount":1450.5,"category":"food","spent_on":"2026-10-14","payment_method":"upi","note":"created via Traefik ingress","created_at":"2026-10-16T15:04:18.653804Z","updated_at":"2026-10-16T15:04:18.653804Z"}  -> HTTP 201
+{"id":2,"title":"Metro card top-up","amount":500.0,"category":"transport","spent_on":"2026-10-15","payment_method":"card","note":null,"created_at":"2026-10-16T15:04:18.716761Z","updated_at":"2026-10-16T15:04:18.716761Z"}  -> HTTP 201
+{"id":3,"title":"Electricity bill","amount":2130.0,"category":"utilities","spent_on":"2026-10-16","payment_method":"bank_transfer","note":null,"created_at":"2026-10-16T15:04:18.744445Z","updated_at":"2026-10-16T15:04:18.744445Z"}  -> HTTP 201
+
+# Read them back + the summary
+[
+    {
+        "id": 3,
+        "title": "Electricity bill",
+        "amount": 2130.0,
+        "category": "utilities",
+        "spent_on": "2026-10-16",
+        "payment_method": "bank_transfer",
+        "note": null,
+        "created_at": "2026-10-16T15:04:18.744445Z",
+        "updated_at": "2026-10-16T15:04:18.744445Z"
+    },
+    {
+        "id": 2,
+        "title": "Metro card top-up",
+        "amount": 500.0,
+        "category": "transport",
+        "spent_on": "2026-10-15",
+        "payment_method": "card",
+        "note": null,
+        "created_at": "2026-10-16T15:04:18.716761Z",
+        "updated_at": "2026-10-16T15:04:18.716761Z"
+    },
+    {
+        "id": 1,
+        "title": "Groceries - weekly shop",
+        "amount": 1450.5,
+        "category": "food",
+        "spent_on": "2026-10-14",
+        "payment_method": "upi",
+        "note": "created via Traefik ingress",
+        "created_at": "2026-10-16T15:04:18.653804Z",
+        "updated_at": "2026-10-16T15:04:18.653804Z"
+    }
+]
+{"total":4080.5,"count":3,"by_category":[{"category":"utilities","total":2130.0,"count":1},{"category":"food","total":1450.5,"count":1},{"category":"transport","total":500.0,"count":1}],"by_month":[{"month":"2026-05","total":0.0},{"month":"2026-06","total":0.0},{"month":"2026-07","total":0.0},{"month":"2026-08","total":0.0},{"month":"2026-09","total":0.0},{"month":"2026-10","total":4080.5}],"top_category":"utilities","this_month_total":4080.5,"average_per_day_this_month":255.03}

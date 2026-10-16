@@ -1,0 +1,5 @@
+$ kubectl apply -f k8s/namespace.yaml && echo && kubectl get namespace expense-tracker --show-labels
+namespace/expense-tracker created
+
+NAME              STATUS   AGE   LABELS
+expense-tracker   Active   0s    app.kubernetes.io/name=expense-tracker,app.kubernetes.io/part-of=expense-tracker,kubernetes.io/metadata.name=expense-tracker,pod-security.kubernetes.io/enforce-version=latest,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn=restricted

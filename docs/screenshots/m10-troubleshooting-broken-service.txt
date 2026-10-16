@@ -1,0 +1,73 @@
+$ kubectl apply -f troubleshooting/broken-service.yaml; kubectl get svc,endpoints; kubectl get pods --show-labels; helm upgrade --install ... --force-conflicts (fix); kubectl get endpoints
+# --- BREAK: apply a backend Service whose selector points at a label no pod has
+$ kubectl apply -f troubleshooting/broken-service.yaml
+Warning: resource services/expense-tracker-backend is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
+service/expense-tracker-backend configured
+
+# --- SYMPTOM: pods are Running/Ready but the Service has no endpoints and the ingress returns an error
+$ kubectl get svc,endpoints expense-tracker-backend -n expense-tracker
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME                              TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)    AGE
+service/expense-tracker-backend   ClusterIP   10.43.83.197   <none>        8000/TCP   19m
+
+NAME                                ENDPOINTS   AGE
+endpoints/expense-tracker-backend   <none>      19m
+
+$ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: expense.local' http://localhost/api/expenses/summary
+503
+
+# --- DIAGNOSE: compare the selector with the pod labels
+$ kubectl get svc expense-tracker-backend -n expense-tracker -o jsonpath='{.spec.selector}'
+{"app":"expense-tracker-backend","app.kubernetes.io/component":"api","app.kubernetes.io/instance":"expense-tracker","app.kubernetes.io/name":"expense-tracker"}
+
+$ kubectl get pods -n expense-tracker -l app.kubernetes.io/component=backend --show-labels
+NAME                                       READY   STATUS    RESTARTS   AGE   LABELS
+expense-tracker-backend-6567fd84b8-4h4gh   1/1     Running   0          13m   app.kubernetes.io/component=backend,app.kubernetes.io/instance=expense-tracker,app.kubernetes.io/name=expense-tracker,app=expense-tracker-backend,pod-template-hash=6567fd84b8
+expense-tracker-backend-6567fd84b8-swfpv   1/1     Running   0          13m   app.kubernetes.io/component=backend,app.kubernetes.io/instance=expense-tracker,app.kubernetes.io/name=expense-tracker,app=expense-tracker-backend,pod-template-hash=6567fd84b8
+
+$ kubectl get pods -n expense-tracker -l app.kubernetes.io/component=api   # what the broken selector actually matches
+No resources found in expense-tracker namespace.
+
+# ROOT CAUSE: the Service selects app.kubernetes.io/component=api but every backend pod is labelled
+# component=backend. A Service is just a label query - with zero matching pods the Endpoints object is
+# empty, kube-proxy has nowhere to send traffic and Traefik answers 5xx. Nothing is wrong with the pods.
+
+# --- FIX: restore the chart-rendered Service (selector = the same labels the pod template carries).
+# --force-conflicts: Helm 4 applies server-side and my kubectl apply made "kubectl-client-side-apply" the owner
+# of .spec.selector; without the flag Helm refuses to overwrite a field another manager owns (see scenario 1).
+$ helm upgrade --install expense-tracker ./helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --set backend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --set frontend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --force-conflicts --wait --timeout 5m
+Release "expense-tracker" has been upgraded. Happy Helming!
+NAME: expense-tracker
+LAST DEPLOYED: Fri Oct 16 20:49:52 2026
+NAMESPACE: expense-tracker
+STATUS: deployed
+REVISION: 5
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+NOTES:
+Expense Tracker 1.0.0 deployed as release "expense-tracker" in namespace "expense-tracker".
+
+Watch the rollout (the backend waits for Postgres, then runs the Alembic migration):
+  kubectl -n expense-tracker get pods,svc,ingress,hpa,pvc -l app.kubernetes.io/instance=expense-tracker
+  kubectl -n expense-tracker rollout status deployment/expense-tracker-backend
+
+Open the app (add "<ingress-address> expense.local" to /etc/hosts; 127.0.0.1 on k3s):
+  http://expense.local/                     (UI)
+  http://expense.local/api/expenses/summary (API through the ingress)
+
+Metrics: a ServiceMonitor was created; the backend should appear as UP under Status > Targets in Prometheus.
+
+WARNING: the database password comes from values.yaml (postgres.password). Fine for a local cluster;
+for anything shared set postgres.existingSecret to a Secret created outside Helm.
+
+# --- VERIFY
+$ kubectl get svc expense-tracker-backend -n expense-tracker -o jsonpath='{.spec.selector}'
+{"app":"expense-tracker-backend","app.kubernetes.io/component":"backend","app.kubernetes.io/instance":"expense-tracker","app.kubernetes.io/name":"expense-tracker"}
+
+$ kubectl get endpoints expense-tracker-backend -n expense-tracker
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME                      ENDPOINTS                         AGE
+expense-tracker-backend   10.42.0.24:8000,10.42.0.25:8000   19m
+
+$ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: expense.local' http://localhost/api/expenses/summary
+200

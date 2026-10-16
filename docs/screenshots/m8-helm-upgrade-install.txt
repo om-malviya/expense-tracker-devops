@@ -1,0 +1,24 @@
+$ helm upgrade --install expense-tracker ./helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --set backend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --set frontend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --wait --timeout 10m
+Release "expense-tracker" does not exist. Installing it now.
+NAME: expense-tracker
+LAST DEPLOYED: Fri Oct 16 20:30:31 2026
+NAMESPACE: expense-tracker
+STATUS: deployed
+REVISION: 1
+DESCRIPTION: Install complete
+TEST SUITE: None
+NOTES:
+Expense Tracker 1.0.0 deployed as release "expense-tracker" in namespace "expense-tracker".
+
+Watch the rollout (the backend waits for Postgres, then runs the Alembic migration):
+  kubectl -n expense-tracker get pods,svc,ingress,hpa,pvc -l app.kubernetes.io/instance=expense-tracker
+  kubectl -n expense-tracker rollout status deployment/expense-tracker-backend
+
+Open the app (add "<ingress-address> expense.local" to /etc/hosts; 127.0.0.1 on k3s):
+  http://expense.local/                     (UI)
+  http://expense.local/api/expenses/summary (API through the ingress)
+
+Metrics: a ServiceMonitor was created; the backend should appear as UP under Status > Targets in Prometheus.
+
+WARNING: the database password comes from values.yaml (postgres.password). Fine for a local cluster;
+for anything shared set postgres.existingSecret to a Secret created outside Helm.

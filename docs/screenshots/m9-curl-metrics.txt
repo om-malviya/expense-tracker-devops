@@ -1,0 +1,53 @@
+$ echo '# kubectl -n expense-tracker port-forward svc/expense-tracker-backend 18000:8000 is running in another terminal' && curl -s localhost:18000/metrics | grep -E '^# (HELP|TYPE) http_|^http_requests_total|^http_request_duration_seconds_(count|sum)' | head -40 && echo && echo '# bucket sample:' && curl -s localhost:18000/metrics | grep '^http_request_duration_seconds_bucket' | head -6 && echo && echo '# metric families exposed:' && curl -s localhost:18000/metrics | grep '^# TYPE' | wc -l
+# kubectl -n expense-tracker port-forward svc/expense-tracker-backend 18000:8000 is running in another terminal
+# HELP http_requests_total Total number of requests by method, status and handler.
+# TYPE http_requests_total counter
+http_requests_total{handler="/health",method="GET",status="2xx"} 17.0
+http_requests_total{handler="/ready",method="GET",status="2xx"} 23.0
+http_requests_total{handler="none",method="GET",status="4xx"} 2.0
+http_requests_total{handler="/openapi.json",method="GET",status="2xx"} 1.0
+http_requests_total{handler="/api/expenses/summary",method="GET",status="2xx"} 2.0
+http_requests_total{handler="/api/expenses",method="POST",status="2xx"} 1.0
+http_requests_total{handler="/api/expenses",method="GET",status="2xx"} 1.0
+# HELP http_requests_created Total number of requests by method, status and handler.
+# TYPE http_requests_created gauge
+# HELP http_request_size_bytes Content length of incoming requests by handler. Only value of header is respected. Otherwise ignored. No percentile calculated. 
+# TYPE http_request_size_bytes summary
+# HELP http_request_size_bytes_created Content length of incoming requests by handler. Only value of header is respected. Otherwise ignored. No percentile calculated. 
+# TYPE http_request_size_bytes_created gauge
+# HELP http_response_size_bytes Content length of outgoing responses by handler. Only value of header is respected. Otherwise ignored. No percentile calculated. 
+# TYPE http_response_size_bytes summary
+# HELP http_response_size_bytes_created Content length of outgoing responses by handler. Only value of header is respected. Otherwise ignored. No percentile calculated. 
+# TYPE http_response_size_bytes_created gauge
+# HELP http_request_duration_highr_seconds Latency with many buckets but no API specific labels. Made for more accurate percentile calculations. 
+# TYPE http_request_duration_highr_seconds histogram
+# HELP http_request_duration_highr_seconds_created Latency with many buckets but no API specific labels. Made for more accurate percentile calculations. 
+# TYPE http_request_duration_highr_seconds_created gauge
+# HELP http_request_duration_seconds Latency with only few buckets by handler. Made to be only used if aggregation by handler is important. 
+# TYPE http_request_duration_seconds histogram
+http_request_duration_seconds_count{handler="/health",method="GET"} 17.0
+http_request_duration_seconds_sum{handler="/health",method="GET"} 0.274324611999873
+http_request_duration_seconds_count{handler="/ready",method="GET"} 23.0
+http_request_duration_seconds_sum{handler="/ready",method="GET"} 0.7980723709993072
+http_request_duration_seconds_count{handler="none",method="GET"} 2.0
+http_request_duration_seconds_sum{handler="none",method="GET"} 0.006922673000190116
+http_request_duration_seconds_count{handler="/openapi.json",method="GET"} 1.0
+http_request_duration_seconds_sum{handler="/openapi.json",method="GET"} 0.4500957019999987
+http_request_duration_seconds_count{handler="/api/expenses/summary",method="GET"} 2.0
+http_request_duration_seconds_sum{handler="/api/expenses/summary",method="GET"} 0.1598875649999627
+http_request_duration_seconds_count{handler="/api/expenses",method="POST"} 1.0
+http_request_duration_seconds_sum{handler="/api/expenses",method="POST"} 0.02890440999999555
+http_request_duration_seconds_count{handler="/api/expenses",method="GET"} 1.0
+http_request_duration_seconds_sum{handler="/api/expenses",method="GET"} 0.05863900899998953
+# HELP http_request_duration_seconds_created Latency with only few buckets by handler. Made to be only used if aggregation by handler is important. 
+
+# bucket sample:
+http_request_duration_seconds_bucket{handler="/health",le="0.1",method="GET"} 16.0
+http_request_duration_seconds_bucket{handler="/health",le="0.5",method="GET"} 17.0
+http_request_duration_seconds_bucket{handler="/health",le="1.0",method="GET"} 17.0
+http_request_duration_seconds_bucket{handler="/health",le="+Inf",method="GET"} 17.0
+http_request_duration_seconds_bucket{handler="/ready",le="0.1",method="GET"} 22.0
+http_request_duration_seconds_bucket{handler="/ready",le="0.5",method="GET"} 23.0
+
+# metric families exposed:
+      16

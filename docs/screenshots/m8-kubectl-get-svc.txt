@@ -1,0 +1,13 @@
+$ kubectl get svc,endpoints -n expense-tracker -o wide
+Warning: v1 Endpoints is deprecated in v1.33+; use discovery.k8s.io/v1 EndpointSlice
+NAME                                        TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE   SELECTOR
+service/expense-tracker-backend             ClusterIP   10.43.83.197    <none>        8000/TCP   93s   app.kubernetes.io/component=backend,app.kubernetes.io/instance=expense-tracker,app.kubernetes.io/name=expense-tracker,app=expense-tracker-backend
+service/expense-tracker-frontend            ClusterIP   10.43.209.151   <none>        80/TCP     93s   app.kubernetes.io/component=frontend,app.kubernetes.io/instance=expense-tracker,app.kubernetes.io/name=expense-tracker,app=expense-tracker-frontend
+service/expense-tracker-postgres            ClusterIP   10.43.228.12    <none>        5432/TCP   93s   app.kubernetes.io/component=postgres,app.kubernetes.io/instance=expense-tracker,app.kubernetes.io/name=expense-tracker,app=expense-tracker-postgres
+service/expense-tracker-postgres-headless   ClusterIP   None            <none>        5432/TCP   93s   app.kubernetes.io/component=postgres,app.kubernetes.io/instance=expense-tracker,app.kubernetes.io/name=expense-tracker,app=expense-tracker-postgres
+
+NAME                                          ENDPOINTS                         AGE
+endpoints/expense-tracker-backend             10.42.0.10:8000,10.42.0.15:8000   93s
+endpoints/expense-tracker-frontend            10.42.0.12:8080,10.42.0.13:8080   93s
+endpoints/expense-tracker-postgres            10.42.0.14:5432                   93s
+endpoints/expense-tracker-postgres-headless   10.42.0.14:5432                   93s

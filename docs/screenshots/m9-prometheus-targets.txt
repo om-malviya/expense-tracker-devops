@@ -1,0 +1,111 @@
+$ helm upgrade --install expense-tracker ... (ServiceMonitor selector fix); kubectl get servicemonitor,prometheusrule -n expense-tracker; curl -s localhost:19090/api/v1/targets | jq ...
+# Revision 1 rendered a ServiceMonitor whose selector carried the pod label app=expense-tracker-backend;
+# the backend *Service* only has the app.kubernetes.io/* labels, so Prometheus found no target.
+# Fixed in helm/expense-tracker/templates/servicemonitor.yaml and rolled out (no pod restart - only the ServiceMonitor changed):
+$ helm upgrade --install expense-tracker ./helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --set backend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --set frontend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9
+Release "expense-tracker" has been upgraded. Happy Helming!
+NAME: expense-tracker
+LAST DEPLOYED: Fri Oct 16 20:37:02 2026
+NAMESPACE: expense-tracker
+STATUS: deployed
+REVISION: 2
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+
+$ kubectl get servicemonitor,prometheusrule -n expense-tracker
+NAME                                                           AGE
+servicemonitor.monitoring.coreos.com/expense-tracker-backend   6m32s
+
+NAME                                                          AGE
+prometheusrule.monitoring.coreos.com/expense-tracker-alerts   67s
+
+$ kubectl get servicemonitor expense-tracker-backend -n expense-tracker -o jsonpath="{.spec.selector.matchLabels}"
+{"app.kubernetes.io/component":"backend","app.kubernetes.io/instance":"expense-tracker","app.kubernetes.io/name":"expense-tracker"}
+$ kubectl get svc expense-tracker-backend -n expense-tracker -o jsonpath="{.metadata.labels}"
+{"app.kubernetes.io/component":"backend","app.kubernetes.io/instance":"expense-tracker","app.kubernetes.io/managed-by":"Helm","app.kubernetes.io/name":"expense-tracker","app.kubernetes.io/part-of":"expense-tracker","app.kubernetes.io/version":"1.0.0","helm.sh/chart":"expense-tracker-1.0.0"}
+
+# waiting for the operator to reload Prometheus and the first scrape ...
+
+# kubectl -n monitoring port-forward svc/kube-prometheus-stack-prometheus 19090:9090 is running in another terminal
+$ curl -s localhost:19090/api/v1/targets | jq ".data.activeTargets[] | select(.scrapePool | test(\"expense-tracker\")) | {scrapePool, scrapeUrl, health, lastScrape, labels: {namespace: .labels.namespace, pod: .labels.pod, service: .labels.service}}"
+{
+  "scrapePool": "serviceMonitor/expense-tracker/expense-tracker-backend/0",
+  "scrapeUrl": "http://10.42.0.10:8000/metrics",
+  "health": "up",
+  "lastScrape": "2026-10-16T15:08:20.867549258Z",
+  "labels": {
+    "namespace": "expense-tracker",
+    "pod": "expense-tracker-backend-6567fd84b8-qjv5h",
+    "service": "expense-tracker-backend"
+  }
+}
+{
+  "scrapePool": "serviceMonitor/expense-tracker/expense-tracker-backend/0",
+  "scrapeUrl": "http://10.42.0.15:8000/metrics",
+  "health": "unknown",
+  "lastScrape": "0001-01-01T00:00:00Z",
+  "labels": {
+    "namespace": "expense-tracker",
+    "pod": "expense-tracker-backend-6567fd84b8-5zf7s",
+    "service": "expense-tracker-backend"
+  }
+}
+{
+  "scrapePool": "serviceMonitor/expense-tracker/expense-tracker-backend/0",
+  "scrapeUrl": "http://10.42.0.24:8000/metrics",
+  "health": "up",
+  "lastScrape": "2026-10-16T15:08:28.340220929Z",
+  "labels": {
+    "namespace": "expense-tracker",
+    "pod": "expense-tracker-backend-6567fd84b8-4h4gh",
+    "service": "expense-tracker-backend"
+  }
+}
+{
+  "scrapePool": "serviceMonitor/expense-tracker/expense-tracker-backend/0",
+  "scrapeUrl": "http://10.42.0.25:8000/metrics",
+  "health": "up",
+  "lastScrape": "2026-10-16T15:08:28.199149519Z",
+  "labels": {
+    "namespace": "expense-tracker",
+    "pod": "expense-tracker-backend-6567fd84b8-swfpv",
+    "service": "expense-tracker-backend"
+  }
+}
+
+$ curl -s localhost:19090/api/v1/rules | jq ".data.groups[] | select(.name | startswith(\"expense-tracker\")) | {group: .name, rules: [.rules[] | {alert: .name, state}]}"
+{
+  "group": "expense-tracker.availability",
+  "rules": [
+    {
+      "alert": "ExpenseTrackerBackendDown",
+      "state": "inactive"
+    },
+    {
+      "alert": "ExpenseTrackerPodCrashLooping",
+      "state": "inactive"
+    }
+  ]
+}
+{
+  "group": "expense-tracker.capacity",
+  "rules": [
+    {
+      "alert": "ExpenseTrackerHpaAtMax",
+      "state": "pending"
+    }
+  ]
+}
+{
+  "group": "expense-tracker.traffic",
+  "rules": [
+    {
+      "alert": "ExpenseTrackerHighErrorRate",
+      "state": "inactive"
+    },
+    {
+      "alert": "ExpenseTrackerHighLatencyP95",
+      "state": "inactive"
+    }
+  ]
+}

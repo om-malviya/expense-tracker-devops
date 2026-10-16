@@ -531,7 +531,7 @@ runbook I follow (`get pods` -> `describe` -> `logs --previous` -> `get endpoint
 
 Because Helm is the source of truth, the fix is always the same `helm upgrade --install` command.
 Captures: `docs/screenshots/m10-troubleshooting-broken-image.png` and
-`docs/screenshots/m10-troubleshooting-broken-service.png` (being captured).
+`docs/screenshots/m10-troubleshooting-broken-service.png`.
 
 ---
 
@@ -551,7 +551,7 @@ The complete table (every file, one row per rubric criterion) is in
 | M7 Terraform | [`m7-terraform-init-validate.png`](docs/screenshots/m7-terraform-init-validate.png), [`m7-terraform-plan.png`](docs/screenshots/m7-terraform-plan.png), [`m7-terraform-plan-summary.png`](docs/screenshots/m7-terraform-plan-summary.png) – apply/console/destroy not available (section 10) |
 | M8 Kubernetes + Helm | [`m8-kubectl-get-pods.png`](docs/screenshots/m8-kubectl-get-pods.png), [`m8-kubectl-get-svc.png`](docs/screenshots/m8-kubectl-get-svc.png), [`m8-helm-list.png`](docs/screenshots/m8-helm-list.png), [`m8-app-via-ingress.png`](docs/screenshots/m8-app-via-ingress.png), [`m8-hpa.png`](docs/screenshots/m8-hpa.png) |
 | M9 Monitoring | [`m9-curl-metrics.png`](docs/screenshots/m9-curl-metrics.png), [`m9-prometheus-targets.png`](docs/screenshots/m9-prometheus-targets.png), [`m9-promql.png`](docs/screenshots/m9-promql.png), [`m9-grafana-dashboard.png`](docs/screenshots/m9-grafana-dashboard.png) |
-| M10 Documentation | this README, [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md), `m10-troubleshooting-*.png` (being captured) |
+| M10 Documentation | this README, [`docs/DEMO_SCRIPT.md`](docs/DEMO_SCRIPT.md), `m10-troubleshooting-*.png` |
 
 Git: 17 commits by Om Malviya, each describing one change
 ([`m3-git-log.txt`](docs/screenshots/m3-git-log.txt) was captured at commit 16; the 17th added the

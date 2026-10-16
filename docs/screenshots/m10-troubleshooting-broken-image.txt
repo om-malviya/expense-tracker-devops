@@ -1,0 +1,101 @@
+$ kubectl apply -f troubleshooting/broken-image.yaml; kubectl get pods; kubectl describe pod <stuck>; kubectl get events; helm upgrade --install ... (fix); kubectl get pods,rs
+# --- BREAK: apply a copy of the backend Deployment whose image tag was never built
+$ kubectl apply -f troubleshooting/broken-image.yaml
+Warning: resource deployments/expense-tracker-backend is missing the kubectl.kubernetes.io/last-applied-configuration annotation which is required by kubectl apply. kubectl apply should only be used on resources created declaratively by either kubectl create --save-config or kubectl apply. The missing annotation will be patched automatically.
+deployment.apps/expense-tracker-backend configured
+
+# --- SYMPTOM
+$ kubectl get pods -n expense-tracker -l app.kubernetes.io/component=backend
+NAME                                       READY   STATUS         RESTARTS   AGE
+expense-tracker-backend-6567fd84b8-4h4gh   1/1     Running        0          12m
+expense-tracker-backend-6567fd84b8-swfpv   1/1     Running        0          12m
+expense-tracker-backend-849fdd89b9-clx8d   0/1     ErrImagePull   0          10s
+
+$ kubectl rollout status deployment/expense-tracker-backend -n expense-tracker --timeout=15s
+Waiting for deployment "expense-tracker-backend" rollout to finish: 1 out of 2 new replicas have been updated...
+error: timed out waiting for the condition
+
+# --- DIAGNOSE
+$ kubectl describe pod expense-tracker-backend-849fdd89b9-clx8d -n expense-tracker   # (Image / State / Events)
+  Image:          ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist
+  Reason:       ImagePullBackOff
+  Normal   BackOff    16s               kubelet            spec.containers{backend}: Back-off pulling image "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist"
+  Warning  Failed     16s               kubelet            spec.containers{backend}: Error: ImagePullBackOff
+  Warning  Failed     3s (x2 over 17s)  kubelet            spec.containers{backend}: Failed to pull image "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist": Error response from daemon: failed to resolve reference "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist": ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist: not found
+  Warning  Failed     3s (x2 over 17s)  kubelet            spec.containers{backend}: Error: ErrImagePull
+
+$ kubectl get events -n expense-tracker --field-selector involvedObject.name=expense-tracker-backend-849fdd89b9-clx8d --sort-by=.lastTimestamp | tail -6
+24s         Normal    Scheduled   pod/expense-tracker-backend-849fdd89b9-clx8d   Successfully assigned expense-tracker/expense-tracker-backend-849fdd89b9-clx8d to colima
+16s         Normal    BackOff     pod/expense-tracker-backend-849fdd89b9-clx8d   Back-off pulling image "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist"
+16s         Warning   Failed      pod/expense-tracker-backend-849fdd89b9-clx8d   Error: ImagePullBackOff
+4s          Normal    Pulling     pod/expense-tracker-backend-849fdd89b9-clx8d   Pulling image "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist"
+3s          Warning   Failed      pod/expense-tracker-backend-849fdd89b9-clx8d   Failed to pull image "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist": Error response from daemon: failed to resolve reference "ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist": ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist: not found
+3s          Warning   Failed      pod/expense-tracker-backend-849fdd89b9-clx8d   Error: ErrImagePull
+
+$ kubectl get deployment expense-tracker-backend -n expense-tracker -o jsonpath='{.spec.template.spec.containers[0].image}'
+ghcr.io/om-malviya/expense-tracker-backend:v9.9.9-does-not-exist
+
+# ROOT CAUSE: the tag v9.9.9-does-not-exist was never pushed to GHCR (CI only publishes <git-sha> and latest),
+# so kubelet gets "manifest unknown" and backs off. Because the rollout uses maxUnavailable=0 the OLD pods keep
+# serving - users see nothing, only the rollout is stuck. (Same symptom for a typo in the registry name or a
+# missing imagePullSecret on a private package.)
+
+# --- FIX: put the Helm-managed spec back (known SHA tag) - Helm re-applies the image and the stuck ReplicaSet is scaled to 0
+$ helm upgrade --install expense-tracker ./helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --set backend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --set frontend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --wait --timeout 5m
+level=WARN msg="upgrade failed" name=expense-tracker error="conflict occurred while applying object expense-tracker/expense-tracker-backend apps/v1, Kind=Deployment: Apply failed with 5 conflicts: conflicts with \"kubectl-client-side-apply\" using apps/v1:\n- .spec.template.spec.containers[name=\"backend\"].image\n- .spec.template.spec.containers[name=\"backend\"].resources.limits.cpu\n- .spec.template.spec.containers[name=\"backend\"].resources.limits.memory\n- .spec.template.spec.containers[name=\"backend\"].resources.requests.cpu\n- .spec.template.spec.containers[name=\"backend\"].resources.requests.memory"
+Error: UPGRADE FAILED: conflict occurred while applying object expense-tracker/expense-tracker-backend apps/v1, Kind=Deployment: Apply failed with 5 conflicts: conflicts with "kubectl-client-side-apply" using apps/v1:
+- .spec.template.spec.containers[name="backend"].image
+- .spec.template.spec.containers[name="backend"].resources.limits.cpu
+- .spec.template.spec.containers[name="backend"].resources.limits.memory
+- .spec.template.spec.containers[name="backend"].resources.requests.cpu
+- .spec.template.spec.containers[name="backend"].resources.requests.memory
+
+# --- VERIFY
+$ kubectl get pods -n expense-tracker -l app.kubernetes.io/component=backend
+NAME                                       READY   STATUS             RESTARTS   AGE
+expense-tracker-backend-6567fd84b8-4h4gh   1/1     Running            0          12m
+expense-tracker-backend-6567fd84b8-swfpv   1/1     Running            0          12m
+expense-tracker-backend-849fdd89b9-clx8d   0/1     ImagePullBackOff   0          25s
+
+$ kubectl get rs -n expense-tracker -l app.kubernetes.io/component=backend
+NAME                                 DESIRED   CURRENT   READY   AGE
+expense-tracker-backend-6567fd84b8   2         2         2       18m
+expense-tracker-backend-849fdd89b9   1         1         0       25s
+
+$ curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: expense.local' http://localhost/api/expenses/summary
+200
+
+# The plain upgrade FAILED: Helm 4 uses server-side apply, and my `kubectl apply` of the broken manifest made
+# "kubectl-client-side-apply" the owner of .image and .resources. Helm refuses to overwrite fields another manager
+# owns unless I tell it to take them back - that is exactly what --force-conflicts is for.
+$ helm upgrade --install expense-tracker ./helm/expense-tracker -n expense-tracker -f helm/expense-tracker/values-dev.yaml --set backend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --set frontend.image.tag=ec416e2b29d120f323c1e0da197c9bed2692f9a9 --force-conflicts --wait --timeout 5m
+Release "expense-tracker" has been upgraded. Happy Helming!
+NAME: expense-tracker
+LAST DEPLOYED: Fri Oct 16 20:49:23 2026
+NAMESPACE: expense-tracker
+STATUS: deployed
+REVISION: 4
+DESCRIPTION: Upgrade complete
+TEST SUITE: None
+
+# --- VERIFY (after the real fix)
+$ kubectl get deployment expense-tracker-backend -n expense-tracker -o jsonpath="{.spec.template.spec.containers[0].image}"
+ghcr.io/om-malviya/expense-tracker-backend:ec416e2b29d120f323c1e0da197c9bed2692f9a9
+
+$ kubectl get pods,rs -n expense-tracker -l app.kubernetes.io/component=backend
+NAME                                           READY   STATUS        RESTARTS   AGE
+pod/expense-tracker-backend-6567fd84b8-4h4gh   1/1     Running       0          13m
+pod/expense-tracker-backend-6567fd84b8-swfpv   1/1     Running       0          13m
+pod/expense-tracker-backend-849fdd89b9-clx8d   0/1     Terminating   0          73s
+
+NAME                                                 DESIRED   CURRENT   READY   AGE
+replicaset.apps/expense-tracker-backend-6567fd84b8   2         2         2       18m
+replicaset.apps/expense-tracker-backend-849fdd89b9   0         0         0       73s
+
+$ helm list -n expense-tracker
+NAME           	NAMESPACE      	REVISION	UPDATED                             	STATUS  	CHART                	APP VERSION
+expense-tracker	expense-tracker	4       	2026-10-16 20:49:23.520688 +0530 IST	deployed	expense-tracker-1.0.0	1.0.0      
+
+$ curl -s -o /dev/null -w '%{http_code}
+' -H 'Host: expense.local' http://localhost/api/expenses/summary
+200
