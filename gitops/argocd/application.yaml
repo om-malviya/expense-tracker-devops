@@ -1,0 +1,64 @@
+# Argo CD Application: "keep namespace expense-tracker-gitops equal to helm/expense-tracker
+# + values-gitops.yaml on the main branch of GitHub".
+#   kubectl apply -f gitops/argocd/application.yaml
+#   kubectl get applications -n argocd
+#
+# Argo CD renders the chart itself (helm template) and applies the result; there is no Helm
+# release secret and no `helm upgrade` anywhere in this path. Git is the only way in.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: expense-tracker-gitops
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: expense-tracker
+  annotations:
+    # Let the API server compute the diff (dry-run server-side apply) instead of Argo CD's
+    # client-side 3-way diff. Without it the Postgres StatefulSet never leaves OutOfSync: the API
+    # server adds defaults to spec.volumeClaimTemplates (apiVersion, kind, volumeMode, status)
+    # that the rendered chart does not contain, and the app re-syncs in a loop.
+    argocd.argoproj.io/compare-options: ServerSideDiff=true
+  # Deleting the Application also deletes everything it deployed (foreground cascade). Without
+  # the finalizer `kubectl delete application` would orphan the workloads instead. (The
+  # domain-qualified "/foreground" form behaves like the bare name and avoids the API warning.)
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io/foreground
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/om-malviya/expense-tracker-devops.git   # public: no repo credentials needed
+    targetRevision: main
+    path: helm/expense-tracker
+    helm:
+      # Fixed release name -> resource names expense-tracker-gitops-{backend,frontend,postgres}
+      # (the chart collapses "<release>-expense-tracker" when the release already contains the chart name).
+      releaseName: expense-tracker-gitops
+      # Relative to `path`. values-gitops.yaml is standalone (see its header), so values-dev.yaml
+      # is not needed here; values.yaml from the chart is always applied first.
+      valueFiles:
+        - values-gitops.yaml
+  destination:
+    server: https://kubernetes.default.svc   # the cluster Argo CD runs in
+    namespace: expense-tracker-gitops
+  syncPolicy:
+    automated:
+      prune: true      # a resource removed from Git is removed from the cluster
+      selfHeal: true   # a change made with kubectl (scale, edit, delete) is reverted to Git
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    # Same Pod Security Admission labels as k8s/namespace.yaml: every pod in the namespace
+    # must pass the "restricted" profile. Argo CD creates the namespace and keeps these labels.
+    managedNamespaceMetadata:
+      labels:
+        app.kubernetes.io/part-of: expense-tracker
+        pod-security.kubernetes.io/enforce: restricted
+        pod-security.kubernetes.io/enforce-version: latest
+        pod-security.kubernetes.io/warn: restricted
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

@@ -1,0 +1,53 @@
+# Argo CD-managed copy of the app: gitops/argocd/application.yaml points Argo CD at this
+# chart on `main` with ONLY this values file, and Argo CD installs it as Helm release
+# `expense-tracker-gitops` in namespace `expense-tracker-gitops` (next to the CI/manual
+# release in `expense-tracker`, which it never touches).
+#
+# Standalone on purpose: it is layered on the chart's values.yaml only, so everything this
+# environment depends on is in this one file and a reviewer sees the whole deployment in
+# one diff. It also works layered after values-dev.yaml (-f values-dev.yaml -f values-gitops.yaml)
+# and renders the same manifests, because every key that values-dev.yaml changes and this
+# environment cares about is set here again.
+#   helm lint     helm/expense-tracker -f helm/expense-tracker/values-gitops.yaml
+#   helm template expense-tracker-gitops helm/expense-tracker -n expense-tracker-gitops -f helm/expense-tracker/values-gitops.yaml
+#
+# Demo: change a replicaCount below, commit, push -> Argo CD syncs the cluster to match.
+backend:
+  image:
+    # The CI pipeline / a PR bumps this tag; Argo CD deploys whatever is on main.
+    # Full git SHA of the last green build (the image exists in GHCR for both components).
+    tag: "b9c04b9ae526e616b5974f42a57191150283da9d"
+  replicaCount: 1           # honoured because hpa.enabled=false (Git, not the HPA, owns the count)
+  resources:
+    requests: {cpu: 25m, memory: 96Mi}
+    limits: {cpu: 250m, memory: 256Mi}
+frontend:
+  image:
+    # The CI pipeline / a PR bumps this tag; Argo CD deploys whatever is on main.
+    tag: "b9c04b9ae526e616b5974f42a57191150283da9d"
+  replicaCount: 1
+  resources:
+    requests: {cpu: 10m, memory: 16Mi}
+    limits: {cpu: 100m, memory: 64Mi}
+config:
+  appEnv: gitops
+  logLevel: info
+  corsOrigins: "http://gitops.expense.local"
+postgres:
+  persistence:
+    size: 1Gi
+  resources:
+    requests: {cpu: 25m, memory: 64Mi}
+    limits: {cpu: 250m, memory: 256Mi}
+ingress:
+  enabled: true
+  className: traefik        # k3s ingress controller; Host-header routing on http://localhost/
+  host: gitops.expense.local
+# No HPA: with an HPA the replica count would be owned by the autoscaler, and Argo CD's
+# self-heal would have nothing to restore when someone runs `kubectl scale`.
+hpa:
+  enabled: false
+# Same ServiceMonitor as values-dev.yaml, so kube-prometheus-stack (namespace monitoring)
+# scrapes this copy too; its targets carry namespace="expense-tracker-gitops".
+serviceMonitor:
+  enabled: true
