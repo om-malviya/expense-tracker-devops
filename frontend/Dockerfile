@@ -28,6 +28,15 @@ RUN npm run build
 # fixable HIGH OS CVEs that would fail the Trivy gate in CI.
 FROM nginxinc/nginx-unprivileged:1.30-alpine
 
+# Apply Alpine security fixes that were published after the base image was built.
+# The Trivy gate failed on 2026-10-26 with three fixable HIGH CVEs (brotli-libs, curl/libcurl)
+# in the 1.30-alpine image; upgrading the OS packages at build time picks up the fixed
+# versions without waiting for an upstream image rebuild. Needs root for apk, so switch
+# back to the unprivileged user right after.
+USER root
+RUN apk upgrade --no-cache
+USER 101
+
 # Defaults for the envsubst template. docker-compose and the Helm chart override
 # these with the real backend service name for their environment.
 ENV BACKEND_HOST=expense-tracker-backend \
