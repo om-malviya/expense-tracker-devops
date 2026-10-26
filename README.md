@@ -2,7 +2,8 @@
 
 Student: Om Malviya | Enrollment No: 24BCS10448
 Repository: https://github.com/om-malviya/expense-tracker-devops
-Green pipeline run: https://github.com/om-malviya/expense-tracker-devops/actions/runs/38919569372
+Green pipeline run: https://github.com/om-malviya/expense-tracker-devops/actions/runs/38919569372 (first green run);
+latest green run: https://github.com/om-malviya/expense-tracker-devops/actions/runs/40339582631
 
 I built a small personal expense tracker (FastAPI + PostgreSQL API, React dashboard) and then put
 the complete delivery chain from the course around it: pytest and static analysis, hardened Docker
@@ -681,6 +682,12 @@ These are the things that actually went wrong or surprised me while building thi
 4. **pip itself is attack surface.** Trivy flagged CVEs in the libraries pip vendors, and nothing at
    runtime needs pip, so the backend Dockerfile uninstalls `pip`, `setuptools` and `wheel` after the
    install step. Likewise `nginx-unprivileged:1.27-alpine` carried fixable HIGH OS CVEs; `1.30-alpine` is clean.
+   A clean scan is only true on the day it runs: on 2026-10-26 the unchanged frontend image failed the
+   gate with three new HIGH CVEs (`brotli-libs`, `curl`/`libcurl`) published after my last build. The
+   fix was `apk upgrade --no-cache` in the runtime stage (as root, then back to uid 101), which pulls the
+   patched Alpine packages without waiting for an upstream image rebuild
+   ([run 40338536035](https://github.com/om-malviya/expense-tracker-devops/actions/runs/40338536035) red,
+   [run 40339582631](https://github.com/om-malviya/expense-tracker-devops/actions/runs/40339582631) green).
 5. **A ServiceMonitor selects Services, not pods.** Revision 1 of the chart used the pod selector labels
    (`app=expense-tracker-backend`) in the ServiceMonitor; the Service only carries `app.kubernetes.io/*`
    labels, so Prometheus found no target. Revision 2 matches on exactly those labels – a Helm upgrade

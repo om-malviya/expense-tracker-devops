@@ -158,15 +158,15 @@ kubectl delete namespace argocd
 ## Evidence
 
 `docs/screenshots/m10-argocd-*`: `m10-argocd-install` (a run of `install.sh` and the Argo CD pods Running),
-`m10-argocd-app-synced` (`kubectl get applications`, the Application status, `kubectl get all` in the
-namespace, the Prometheus target), `m10-argocd-self-heal` (pod delete + `kubectl scale --replicas=3`
-reverted to 1, with timestamps), `m10-argocd-ui.png` (the application's resource tree, Synced + Healthy)
-and `m10-argocd-ui-apps.png` (the application list).
+`m10-argocd-app-synced` (`kubectl get applications`, the key lines of `kubectl describe application` -
+source path and value file, destination, sync policy, health, synced revision -, `kubectl get all` in the
+namespace, its Pod Security labels and a request through Traefik), `m10-argocd-self-heal` (a backend pod
+deleted and replaced by its ReplicaSet, then `kubectl scale --replicas=3` reverted to Git's 1 by an
+automated sync, polled every second with timestamps, plus the Application's last operation and events),
+`m10-argocd-ui.png` (the application's resource tree, Synced + Healthy) and `m10-argocd-ui-apps.png`
+(the application list).
 
-These were captured before `values-gitops.yaml` was on `main`. The committed Application reads that file
-from GitHub, so at that point it showed `Unknown` with "values-gitops.yaml: no such file or directory" -
-Argo CD only deploys what is in Git. To capture a working sync I applied a temporary, uncommitted
-Application `expense-tracker-gitops-preview`: same repository, branch, chart path and release name, with
-the contents of `values-gitops.yaml` passed inline (`helm.valuesObject`). Once the file is on `main`, the
-preview Application is deleted (it has no finalizer, so the workload stays) and `expense-tracker-gitops`
-adopts the identical resources.
+All of them show the committed Application `expense-tracker-gitops` (`argocd/application.yaml`), which
+syncs `helm/expense-tracker` + `values-gitops.yaml` from `main` on GitHub (commit `fa508af` at capture
+time). Before `values-gitops.yaml` was pushed, the same Application showed `Unknown` with
+"values-gitops.yaml: no such file or directory" - Argo CD only deploys what is in Git.

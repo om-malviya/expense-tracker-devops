@@ -1,81 +1,71 @@
-$ # Argo CD self-heal: kubectl delete pod + kubectl scale --replicas=3 -> back to Git (1)  (each command is shown with its own $ prompt)
-== Git (values-gitops.yaml) says backend.replicaCount: 1, selfHeal: true
-[14:09:04Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops-preview=Synced/Healthy
-[14:09:04Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   <none>
+$ N=expense-tracker-gitops; D=expense-tracker-gitops-backend; L=app.kubernetes.io/component=backend; run() { echo "\$ $*   # $(date -u +%H:%M:%SZ)"; eval "$*"; }; st() { echo "[$(date -u +%H:%M:%SZ)] deploy/$D $(kubectl -n $N get deploy $D -o jsonpath='spec.replicas={.spec.replicas} ready={.status.readyReplicas}') | app $N $(kubectl -n argocd get application $N -o jsonpath='{.status.sync.status}/{.status.health.status}')"; }; echo '# Git (helm/expense-tracker/values-gitops.yaml): backend.replicaCount: 1 - Application syncPolicy.automated.selfHeal: true'; st; echo; echo '# 1. delete one backend pod -> the ReplicaSet creates a replacement'; run kubectl -n $N get pods -l $L; run kubectl -n $N delete pod $(kubectl -n $N get pods -l $L -o jsonpath='{.items[0].metadata.name}'); run kubectl -n $N wait --for=condition=Ready pod -l $L --timeout=180s; run kubectl -n $N get pods -l $L; st; echo; echo '# 2. drift: scale the Deployment by hand to 3 (once), then poll every second'; run kubectl -n $N scale deploy/$D --replicas=3; for i in $(seq 20); do st; sleep 1; done; run kubectl -n $N get pods -l $L; echo; echo '# 3. the automated sync that put Git back'; run "kubectl describe application $N -n argocd | sed -n '/^  Operation State:/,/^    Started At:/p' | grep -E 'Operation State|Finished At|Message|Automated|Auto Heal|^ +Kind|^ +Name|^ +Revision|Phase|Started At'"; run "kubectl -n argocd get events --field-selector involvedObject.name=$N --sort-by=.lastTimestamp -o custom-columns=TIME:.lastTimestamp,REASON:.reason,MESSAGE:.message | tail -n 8"; run "kubectl -n $N get events --field-selector involvedObject.kind=Deployment,involvedObject.name=$D --sort-by=.lastTimestamp -o custom-columns=TIME:.lastTimestamp,REASON:.reason,MESSAGE:.message | tail -n 3"
+# Git (helm/expense-tracker/values-gitops.yaml): backend.replicaCount: 1 - Application syncPolicy.automated.selfHeal: true
+[14:34:15Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
 
-== 1. delete the backend pod (the ReplicaSet replaces it; Argo CD only reports it)
-[14:09:04Z] $ kubectl -n expense-tracker-gitops delete pod -l app.kubernetes.io/instance=expense-tracker-gitops,app.kubernetes.io/component=backend --wait=false
-pod "expense-tracker-gitops-backend-7cb56f9f65-ssdrz" deleted from expense-tracker-gitops namespace
-[14:09:07Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:07Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:07Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:10Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:10Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:11Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:14Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:14Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:14Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:17Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:17Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:17Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:20Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:20Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:20Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:23Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:23Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:23Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:26Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:26Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:26Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:29Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:29Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:29Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:33Z]   expense-tracker-gitops-backend-7cb56f9f65-ssdrz   Running   2026-10-26T14:09:34Z
-[14:09:33Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:33Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:36Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:36Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:39Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:39Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:42Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:42Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:45Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:45Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:48Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:49Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=0 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:52Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
-[14:09:52Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops-preview=Synced/Healthy
+# 1. delete one backend pod -> the ReplicaSet creates a replacement
+$ kubectl -n expense-tracker-gitops get pods -l app.kubernetes.io/component=backend   # 14:34:15Z
+NAME                                              READY   STATUS    RESTARTS   AGE
+expense-tracker-gitops-backend-7cb56f9f65-vsr4h   1/1     Running   0          25m
+$ kubectl -n expense-tracker-gitops delete pod expense-tracker-gitops-backend-7cb56f9f65-vsr4h   # 14:34:15Z
+pod "expense-tracker-gitops-backend-7cb56f9f65-vsr4h" deleted from expense-tracker-gitops namespace
+$ kubectl -n expense-tracker-gitops wait --for=condition=Ready pod -l app.kubernetes.io/component=backend --timeout=180s   # 14:34:46Z
+pod/expense-tracker-gitops-backend-7cb56f9f65-xxb9p condition met
+$ kubectl -n expense-tracker-gitops get pods -l app.kubernetes.io/component=backend   # 14:35:01Z
+NAME                                              READY   STATUS    RESTARTS   AGE
+expense-tracker-gitops-backend-7cb56f9f65-xxb9p   1/1     Running   0          46s
+[14:35:01Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
 
-== 2. drift: scale the Deployment to 3 by hand (Git says 1)
-[14:09:52Z] $ kubectl -n expense-tracker-gitops scale deploy expense-tracker-gitops-backend --replicas=3
+# 2. drift: scale the Deployment by hand to 3 (once), then poll every second
+$ kubectl -n expense-tracker-gitops scale deploy/expense-tracker-gitops-backend --replicas=3   # 14:35:01Z
 deployment.apps/expense-tracker-gitops-backend scaled
-[14:09:52Z] deploy/expense-tracker-gitops-backend spec.replicas=3 ready=1 | app expense-tracker-gitops-preview=Synced/Healthy
-[14:09:53Z] deploy/expense-tracker-gitops-backend spec.replicas=3 ready=1 | app expense-tracker-gitops-preview=OutOfSync/Progressing
-[14:09:54Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops-preview=Synced/Progressing
-[14:09:55Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops-preview=Synced/Healthy
-[14:09:57Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops-preview=Synced/Healthy
-[14:09:57Z]   expense-tracker-gitops-backend-7cb56f9f65-8g894   Running   2026-10-26T14:10:24Z
-[14:09:57Z]   expense-tracker-gitops-backend-7cb56f9f65-bdpxb   Running   2026-10-26T14:10:24Z
-[14:09:57Z]   expense-tracker-gitops-backend-7cb56f9f65-vsr4h   Running   <none>
+[14:35:01Z] deploy/expense-tracker-gitops-backend spec.replicas=3 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:02Z] deploy/expense-tracker-gitops-backend spec.replicas=3 ready=1 | app expense-tracker-gitops OutOfSync/Progressing
+[14:35:03Z] deploy/expense-tracker-gitops-backend spec.replicas=3 ready=1 | app expense-tracker-gitops OutOfSync/Progressing
+[14:35:05Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:06Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:07Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:08Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:09Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:10Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:11Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:12Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:13Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:14Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:15Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:16Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:17Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:18Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:20Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:21Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+[14:35:22Z] deploy/expense-tracker-gitops-backend spec.replicas=1 ready=1 | app expense-tracker-gitops Synced/Healthy
+$ kubectl -n expense-tracker-gitops get pods -l app.kubernetes.io/component=backend   # 14:35:23Z
+NAME                                              READY   STATUS        RESTARTS   AGE
+expense-tracker-gitops-backend-7cb56f9f65-wmjf8   0/1     Terminating   0          22s
+expense-tracker-gitops-backend-7cb56f9f65-xxb9p   1/1     Running       0          68s
+expense-tracker-gitops-backend-7cb56f9f65-zkh5t   0/1     Terminating   0          22s
 
-== Argo CD's record of the automated sync that undid the drift
-phase: Succeeded
-message: successfully synced (all tasks run)
-initiatedBy.automated: true
-startedAt: 2026-10-26T14:09:52Z
-finishedAt: 2026-10-26T14:09:54Z
-revision: b9c04b9ae526e616b5974f42a57191150283da9d
-
-== Deployment events (ScalingReplicaSet 1 -> 3 -> 1)
-LAST                   REASON              MESSAGE
+# 3. the automated sync that put Git back
+$ kubectl describe application expense-tracker-gitops -n argocd | sed -n '/^  Operation State:/,/^    Started At:/p' | grep -E 'Operation State|Finished At|Message|Automated|Auto Heal|^ +Kind|^ +Name|^ +Revision|Phase|Started At'   # 14:35:23Z
+  Operation State:
+    Finished At:  2026-10-26T14:35:04Z
+    Message:      successfully synced (all tasks run)
+        Automated:  true
+        Auto Heal Attempts Count:  2
+          Kind:    Deployment
+          Name:    expense-tracker-gitops-backend
+        Revision:  fa508afc6f1e74769395ff3fa12e130b007feb6b
+    Phase:       Succeeded
+    Started At:  2026-10-26T14:35:02Z
+$ kubectl -n argocd get events --field-selector involvedObject.name=expense-tracker-gitops --sort-by=.lastTimestamp -o custom-columns=TIME:.lastTimestamp,REASON:.reason,MESSAGE:.message | tail -n 8   # 14:35:23Z
+2026-10-26T14:34:15Z   ResourceUpdated      Updated health status: Healthy -> Progressing
+2026-10-26T14:35:01Z   ResourceUpdated      Updated health status: Progressing -> Healthy
+2026-10-26T14:35:02Z   OperationStarted     Initiated automated sync to 'fa508afc6f1e74769395ff3fa12e130b007feb6b'
+2026-10-26T14:35:02Z   ResourceUpdated      Updated sync status: Synced -> OutOfSync
+2026-10-26T14:35:02Z   ResourceUpdated      Updated health status: Healthy -> Progressing
+2026-10-26T14:35:04Z   OperationCompleted   Partial sync operation to fa508afc6f1e74769395ff3fa12e130b007feb6b succeeded
+2026-10-26T14:35:04Z   ResourceUpdated      Updated sync status: OutOfSync -> Synced
+2026-10-26T14:35:04Z   ResourceUpdated      Updated health status: Progressing -> Healthy
+$ kubectl -n expense-tracker-gitops get events --field-selector involvedObject.kind=Deployment,involvedObject.name=expense-tracker-gitops-backend --sort-by=.lastTimestamp -o custom-columns=TIME:.lastTimestamp,REASON:.reason,MESSAGE:.message | tail -n 3   # 14:35:23Z
 2026-10-26T13:55:06Z   ScalingReplicaSet   Scaled up replica set expense-tracker-gitops-backend-7cb56f9f65 from 0 to 1
-2026-10-26T14:09:52Z   ScalingReplicaSet   Scaled up replica set expense-tracker-gitops-backend-7cb56f9f65 from 1 to 3
-2026-10-26T14:09:54Z   ScalingReplicaSet   Scaled down replica set expense-tracker-gitops-backend-7cb56f9f65 from 3 to 1
-
-== Application events (argocd namespace)
-2026-10-26T14:09:52Z   OperationStarted     Initiated automated sync to 'b9c04b9ae526e616b5974f42a57191150283da9d'
-2026-10-26T14:09:52Z   ResourceUpdated      Updated sync status: Synced -> OutOfSync
-2026-10-26T14:09:52Z   ResourceUpdated      Updated health status: Healthy -> Progressing
-2026-10-26T14:09:54Z   OperationCompleted   Partial sync operation to b9c04b9ae526e616b5974f42a57191150283da9d succeeded
-2026-10-26T14:09:54Z   ResourceUpdated      Updated sync status: OutOfSync -> Synced
-2026-10-26T14:09:54Z   ResourceUpdated      Updated health status: Progressing -> Healthy
+2026-10-26T14:35:01Z   ScalingReplicaSet   Scaled up replica set expense-tracker-gitops-backend-7cb56f9f65 from 1 to 3
+2026-10-26T14:35:04Z   ScalingReplicaSet   Scaled down replica set expense-tracker-gitops-backend-7cb56f9f65 from 3 to 1

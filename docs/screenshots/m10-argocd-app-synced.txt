@@ -1,14 +1,31 @@
-$ # Argo CD: application Synced + Healthy, namespace expense-tracker-gitops  (each command is shown with its own $ prompt)
-$ kubectl get applications -n argocd -o wide
-NAME                             SYNC STATUS   HEALTH STATUS   REVISION                                   PROJECT
-expense-tracker-gitops           Unknown       Healthy         main                                       default
-expense-tracker-gitops-preview   Synced        Healthy         b9c04b9ae526e616b5974f42a57191150283da9d   default
+$ run() { echo "\$ $*"; eval "$*"; echo; }; run kubectl get applications -n argocd; run "kubectl describe application expense-tracker-gitops -n argocd | sed -n '/^Spec:/,/Self Heal:/p; /^Status:/p; /^  Health:/,/^    Status:/p; /^  Summary:/,/^    Status:/p'"; run kubectl get all -n expense-tracker-gitops; run kubectl get ns expense-tracker-gitops --show-labels; run "curl -s -H 'Host: gitops.expense.local' http://localhost/api/expenses/summary"
+$ kubectl get applications -n argocd
+NAME                     SYNC STATUS   HEALTH STATUS
+expense-tracker-gitops   Synced        Healthy
 
-$ kubectl describe application expense-tracker-gitops-preview -n argocd | sed -n '/^Status:/,$p'   (key lines)
+$ kubectl describe application expense-tracker-gitops -n argocd | sed -n '/^Spec:/,/Self Heal:/p; /^Status:/p; /^  Health:/,/^    Status:/p; /^  Summary:/,/^    Status:/p'
+Spec:
+  Destination:
+    Namespace:             expense-tracker-gitops
+    Server:                https://kubernetes.default.svc
+  Project:                 default
+  Revision History Limit:  10
+  Source:
+    Helm:
+      Release Name:  expense-tracker-gitops
+      Value Files:
+        values-gitops.yaml
+    Path:             helm/expense-tracker
+    Repo URL:         https://github.com/om-malviya/expense-tracker-devops.git
+    Target Revision:  main
+  Sync Policy:
+    Automated:
+      Prune:      true
+      Self Heal:  true
+Status:
   Health:
-    Last Transition Time:  2026-10-26T13:55:57Z
+    Last Transition Time:  2026-10-26T13:54:39Z
     Status:                Healthy
-  Reconciled At:           2026-10-26T14:01:41Z
   Summary:
     External URLs:
       http://gitops.expense.local/
@@ -18,68 +35,47 @@ $ kubectl describe application expense-tracker-gitops-preview -n argocd | sed -n
       ghcr.io/om-malviya/expense-tracker-frontend:b9c04b9ae526e616b5974f42a57191150283da9d
       postgres:16-alpine
   Sync:
-    Revision:             b9c04b9ae526e616b5974f42a57191150283da9d
+    Compared To:
+      Destination:
+        Namespace:  expense-tracker-gitops
+        Server:     https://kubernetes.default.svc
+      Source:
+        Helm:
+          Release Name:  expense-tracker-gitops
+          Value Files:
+            values-gitops.yaml
+        Path:             helm/expense-tracker
+        Repo URL:         https://github.com/om-malviya/expense-tracker-devops.git
+        Target Revision:  main
+    Revision:             fa508afc6f1e74769395ff3fa12e130b007feb6b
     Status:               Synced
 
-$ kubectl get application expense-tracker-gitops-preview -n argocd -o jsonpath='{range .status.resources[*]}...'   (sync status per resource)
-ConfigMap/expense-tracker-gitops-config           Synced
-Secret/expense-tracker-gitops-secrets             Synced
-Service/expense-tracker-gitops-backend            Synced
-Service/expense-tracker-gitops-frontend           Synced
-Service/expense-tracker-gitops-postgres           Synced
-Service/expense-tracker-gitops-postgres-headless  Synced
-Deployment/expense-tracker-gitops-backend         Synced
-Deployment/expense-tracker-gitops-frontend        Synced
-StatefulSet/expense-tracker-gitops-postgres       Synced
-ServiceMonitor/expense-tracker-gitops-backend     Synced
-Ingress/expense-tracker-gitops                    Synced
-
-$ kubectl get application expense-tracker-gitops-preview -n argocd -o jsonpath='{.spec.source.repoURL} {.spec.source.targetRevision} {.spec.source.path} {.spec.syncPolicy.automated} {.spec.syncPolicy.syncOptions}'
-https://github.com/om-malviya/expense-tracker-devops.git main helm/expense-tracker
-{"prune":true,"selfHeal":true}  ["CreateNamespace=true","ServerSideApply=true"]
-
-$ kubectl get all,ingress,servicemonitor -n expense-tracker-gitops
+$ kubectl get all -n expense-tracker-gitops
 NAME                                                   READY   STATUS    RESTARTS   AGE
-pod/expense-tracker-gitops-backend-7cb56f9f65-gd7bt    1/1     Running   0          8m12s
-pod/expense-tracker-gitops-frontend-68c8988d78-zgtz5   1/1     Running   0          8m12s
-pod/expense-tracker-gitops-postgres-0                  1/1     Running   0          8m12s
+pod/expense-tracker-gitops-backend-7cb56f9f65-vsr4h    1/1     Running   0          24m
+pod/expense-tracker-gitops-frontend-68c8988d78-zgtz5   1/1     Running   0          38m
+pod/expense-tracker-gitops-postgres-0                  1/1     Running   0          38m
 
 NAME                                               TYPE        CLUSTER-IP      EXTERNAL-IP   PORT(S)    AGE
-service/expense-tracker-gitops-backend             ClusterIP   10.43.245.100   <none>        8000/TCP   8m12s
-service/expense-tracker-gitops-frontend            ClusterIP   10.43.140.223   <none>        80/TCP     8m12s
-service/expense-tracker-gitops-postgres            ClusterIP   10.43.31.255    <none>        5432/TCP   8m12s
-service/expense-tracker-gitops-postgres-headless   ClusterIP   None            <none>        5432/TCP   8m12s
+service/expense-tracker-gitops-backend             ClusterIP   10.43.245.100   <none>        8000/TCP   38m
+service/expense-tracker-gitops-frontend            ClusterIP   10.43.140.223   <none>        80/TCP     38m
+service/expense-tracker-gitops-postgres            ClusterIP   10.43.31.255    <none>        5432/TCP   38m
+service/expense-tracker-gitops-postgres-headless   ClusterIP   None            <none>        5432/TCP   38m
 
 NAME                                              READY   UP-TO-DATE   AVAILABLE   AGE
-deployment.apps/expense-tracker-gitops-backend    1/1     1            1           8m12s
-deployment.apps/expense-tracker-gitops-frontend   1/1     1            1           8m12s
+deployment.apps/expense-tracker-gitops-backend    1/1     1            1           38m
+deployment.apps/expense-tracker-gitops-frontend   1/1     1            1           38m
 
 NAME                                                         DESIRED   CURRENT   READY   AGE
-replicaset.apps/expense-tracker-gitops-backend-7cb56f9f65    1         1         1       8m12s
-replicaset.apps/expense-tracker-gitops-frontend-68c8988d78   1         1         1       8m12s
+replicaset.apps/expense-tracker-gitops-backend-7cb56f9f65    1         1         1       38m
+replicaset.apps/expense-tracker-gitops-frontend-68c8988d78   1         1         1       38m
 
 NAME                                               READY   AGE
-statefulset.apps/expense-tracker-gitops-postgres   1/1     8m12s
-
-NAME                                               CLASS     HOSTS                  ADDRESS       PORTS   AGE
-ingress.networking.k8s.io/expense-tracker-gitops   traefik   gitops.expense.local   192.168.5.1   80      8m12s
-
-NAME                                                                  AGE
-servicemonitor.monitoring.coreos.com/expense-tracker-gitops-backend   8m11s
-
-$ kubectl get pvc -n expense-tracker-gitops
-NAME                                     STATUS   CAPACITY   STORAGECLASS
-data-expense-tracker-gitops-postgres-0   Bound    1Gi        local-path
+statefulset.apps/expense-tracker-gitops-postgres   1/1     38m
 
 $ kubectl get ns expense-tracker-gitops --show-labels
-NAME                     STATUS   AGE     LABELS
-expense-tracker-gitops   Active   8m12s   app.kubernetes.io/part-of=expense-tracker,kubernetes.io/metadata.name=expense-tracker-gitops,pod-security.kubernetes.io/enforce-version=latest,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn=restricted
+NAME                     STATUS   AGE   LABELS
+expense-tracker-gitops   Active   38m   app.kubernetes.io/part-of=expense-tracker,kubernetes.io/metadata.name=expense-tracker-gitops,pod-security.kubernetes.io/enforce-version=latest,pod-security.kubernetes.io/enforce=restricted,pod-security.kubernetes.io/warn=restricted
 
 $ curl -s -H 'Host: gitops.expense.local' http://localhost/api/expenses/summary
 {"total":0.0,"count":0,"by_category":[],"by_month":[{"month":"2026-05","total":0.0},{"month":"2026-06","total":0.0},{"month":"2026-07","total":0.0},{"month":"2026-08","total":0.0},{"month":"2026-09","total":0.0},{"month":"2026-10","total":0.0}],"top_category":null,"this_month_total":0.0,"average_per_day_this_month":0.0}
-
-$ kubectl get --raw '/api/v1/namespaces/monitoring/services/kube-prometheus-stack-prometheus:http-web/proxy/api/v1/query?query=up{namespace="expense-tracker-gitops"}'
-up{job=expense-tracker-gitops-backend, namespace=expense-tracker-gitops, pod=expense-tracker-gitops-backend-7cb56f9f65-gd7bt} = 1
-
-$ kubectl get application expense-tracker-gitops -n argocd -o jsonpath={.status.conditions[*].message}   (the committed Application, before values-gitops.yaml is on main)
-ComparisonError: Failed to load target state: failed to generate manifest for source 1 of 1: rpc error: code = Unknown desc = Manifest generation error (cached): failed to execute helm template command: failed running helm: `helm template . --name-template expense-tracker-gitops --namespace expense-tracker-gitops --kube-version 1.35.0 --values <path to cached source>/helm/expense-tracker/values-gitops.yaml --include-crds` failed exit status 1: Error: open <path to cached source>/helm/expense-tracker/values-gitops.yaml: no such file or directory

@@ -135,8 +135,8 @@ Rows marked "" name the file that is about to be added; the row is updated when 
 | Presentation deck | `../../demo/presentation.pptx`, `../../demo/presentation.pdf` | 11 slides with speaker notes: overview, tech stack, architecture, CI/CD, security, Terraform, Kubernetes + Helm, Argo CD, observability, key learnings | 2026-10-26 |
 | Demo video | `../../demo/expense-tracker-demo.mp4` | The recorded presentation and live walkthrough in the order required by `SUBMISSION.md` | to be added |
 | Argo CD installed | `m10-argocd-install.txt` / `.png` | `gitops/argocd/install.sh`: Argo CD v3.5.6 pods Running in namespace `argocd` | 2026-10-26 |
-| Argo CD application synced | `m10-argocd-app-synced.txt` / `.png` | Application Synced + Healthy at the `main` revision, per-resource sync status, workloads in `expense-tracker-gitops`, request through the ingress | 2026-10-26 |
-| Argo CD self-heal | `m10-argocd-self-heal.txt` / `.png` | Pod deleted and replaced; manual `kubectl scale` to 3 reverted to 1 within 2 s by automated sync | 2026-10-26 |
+| Argo CD application synced | `m10-argocd-app-synced.txt` / `.png` | Application `expense-tracker-gitops` Synced + Healthy from GitHub `main` (`values-gitops.yaml`), workloads and restricted Pod Security labels in `expense-tracker-gitops`, request through the ingress | 2026-10-26 |
+| Argo CD self-heal | `m10-argocd-self-heal.txt` / `.png` | Pod deleted and replaced; manual `kubectl scale` to 3 reverted to the Git value 1 within about 4 s by automated sync, with the sync operation and events | 2026-10-26 |
 | Argo CD UI | `m10-argocd-ui.png`, `m10-argocd-ui-apps.png` | Resource tree Synced to `main` and Healthy; application list | 2026-10-26 |
 
 ## Not available
