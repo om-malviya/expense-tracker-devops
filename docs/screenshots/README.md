@@ -84,7 +84,7 @@ Rows marked "" name the file that is about to be added; the row is updated when 
 | Trivy scans both images in CI | `m6-trivy-config.txt` / `.png` | `security/trivy.yaml` (severity HIGH/CRITICAL, scanners vuln/secret/misconfig, `vulnerability.ignore-unfixed: true`) and the four Trivy steps of the workflow (gate x2, SARIF x2) | 2026-10-16 |
 | Pipeline fails on HIGH/CRITICAL CVEs | `m6-trivy-config.txt` / `.png`, `m6-trivy-scan-output.txt` | the gate steps run with `exit-code: 1`; the SARIF steps with `exit-code: 0` and `continue-on-error` (reporting only) | 2026-10-16 |
 | Trivy output from a pipeline run | `m6-trivy-scan-output.txt` / `.png` | Run 38919569372 log: backend `debian 13.7`, 87 OS packages + 30 Python packages, frontend `alpine 3.24.2`, 70 OS packages; Report Summary tables with `0` vulnerabilities for every target; both SARIF uploads succeeded | 2026-10-16 |
-| Written explanation of the scan result | `m6-trivy-explanation.txt` | What Trivy scanned and what "clean" means (also in `SECURITY.md` and README section 9) | 2026-10-16 |
+| Written explanation of the scan result | `m6-trivy-explanation.txt` | What Trivy scanned and what "clean" means (also in `SECURITY.md` and README section 10) | 2026-10-16 |
 
 ## M7 – Terraform: AWS Infrastructure as Code
 
@@ -129,9 +129,15 @@ Rows marked "" name the file that is about to be added; the row is updated when 
 
 | Rubric criterion | File(s) | What it shows | Captured |
 |---|---|---|---|
-| `README.md` in the project root | `../../README.md` | 16 sections: application, architecture, layout, running, API, tests, Docker, CI/CD, security, Terraform, Kubernetes/Helm, monitoring, troubleshooting, evidence, demo, lessons learned | 2026-10-16 |
+| `README.md` in the project root | `../../README.md` | 19 sections: application, tech stack, architecture, layout, running, API, tests, Docker, CI/CD, security, Terraform, Kubernetes/Helm, Argo CD, monitoring, troubleshooting, known issues and limitations, evidence, presentation and video, lessons learned | 2026-10-26 |
 | Failure simulation – wrong image tag | `m10-troubleshooting-broken-image.txt` / `.png` | `kubectl apply -f troubleshooting/broken-image.yaml`, new pods in `ImagePullBackOff`, `describe pod` -> `manifest unknown`, recovery with `helm upgrade --install` | |
 | Failure simulation – Service selector mismatch | `m10-troubleshooting-broken-service.txt` / `.png` | `kubectl apply -f troubleshooting/broken-service.yaml`, `get endpoints` -> `<none>`, 503 through the ingress, recovery with `helm upgrade --install` | |
+| Presentation deck | `../../demo/presentation.pptx`, `../../demo/presentation.pdf` | 11 slides with speaker notes: overview, tech stack, architecture, CI/CD, security, Terraform, Kubernetes + Helm, Argo CD, observability, key learnings | 2026-10-26 |
+| Demo video | `../../demo/expense-tracker-demo.mp4` | The recorded presentation and live walkthrough in the order required by `SUBMISSION.md` | to be added |
+| Argo CD installed | `m10-argocd-install.txt` / `.png` | `gitops/argocd/install.sh`: Argo CD v3.5.6 pods Running in namespace `argocd` | 2026-10-26 |
+| Argo CD application synced | `m10-argocd-app-synced.txt` / `.png` | Application Synced + Healthy at the `main` revision, per-resource sync status, workloads in `expense-tracker-gitops`, request through the ingress | 2026-10-26 |
+| Argo CD self-heal | `m10-argocd-self-heal.txt` / `.png` | Pod deleted and replaced; manual `kubectl scale` to 3 reverted to 1 within 2 s by automated sync | 2026-10-26 |
+| Argo CD UI | `m10-argocd-ui.png`, `m10-argocd-ui-apps.png` | Resource tree Synced to `main` and Healthy; application list | 2026-10-26 |
 
 ## Not available
 

@@ -8,11 +8,22 @@ I built a small personal expense tracker (FastAPI + PostgreSQL API, React dashbo
 the complete delivery chain from the course around it: pytest and static analysis, hardened Docker
 images, a GitHub Actions pipeline with a Trivy gate that publishes SHA-tagged images to GHCR,
 Terraform for an AWS VPC + EKS cluster, a Helm chart running on Kubernetes with Ingress and an HPA,
-and Prometheus/Grafana monitoring with alert rules. This README is the single page a grader needs;
-every claim below links to a file in the repo or a capture in [`docs/screenshots/`](docs/screenshots/README.md).
+Prometheus/Grafana monitoring with alert rules, and Argo CD for a GitOps deployment path. This README
+is the single page a grader needs; every claim below links to a file in the repo or a capture in
+[`docs/screenshots/`](docs/screenshots/README.md). The presentation deck and the demo video are in
+[`demo/`](demo/README.md); the course's submission rules are copied in [`SUBMISSION.md`](SUBMISSION.md).
 
 | Section | | |
 |---|---|---|
+| [1. What the application does](#1-what-the-application-does) | [8. Docker](#8-docker) | [15. Troubleshooting lab](#15-troubleshooting-lab) |
+| [2. Tech stack](#2-tech-stack) | [9. CI/CD pipeline](#9-cicd-pipeline) | [16. Known issues and limitations](#16-known-issues-and-limitations) |
+| [3. Architecture](#3-architecture) | [10. Security](#10-security) | [17. Evidence index](#17-evidence-index) |
+| [4. Repository layout](#4-repository-layout) | [11. Terraform](#11-terraform) | [18. Presentation and demo video](#18-presentation-and-demo-video) |
+| [5. Running locally](#5-running-locally) | [12. Kubernetes + Helm](#12-kubernetes--helm) | [19. Lessons learned](#19-lessons-learned) |
+| [6. API reference](#6-api-reference) | [13. GitOps with Argo CD](#13-gitops-with-argo-cd) | |
+| [7. Tests and code quality](#7-tests-and-code-quality) | [14. Monitoring](#14-monitoring) | |
+
+---|---|---|
 | [1. What the application does](#1-what-the-application-does) | [7. Docker](#7-docker) | [12. Monitoring](#12-monitoring) |
 | [2. Architecture](#2-architecture) | [8. CI/CD pipeline](#8-cicd-pipeline) | [13. Troubleshooting lab](#13-troubleshooting-lab) |
 | [3. Repository layout](#3-repository-layout) | [9. Security](#9-security) | [14. Evidence index](#14-evidence-index) |
@@ -53,7 +64,26 @@ Generated OpenAPI UI: [`docs/screenshots/m1-swagger-docs.png`](docs/screenshots/
 
 ---
 
-## 2. Architecture
+## 2. Tech stack
+
+| Layer | Tools and versions |
+|---|---|
+| Backend | Python 3.12, FastAPI 0.142, Uvicorn 0.54, SQLAlchemy 2.0, Alembic 1.20, psycopg 3, pydantic-settings 2.15, prometheus-fastapi-instrumentator 8.1 |
+| Database | PostgreSQL 16 (alpine); SQLite only for the test suite |
+| Frontend | React 18.3, Vite 7.3, plain CSS; served by nginx-unprivileged 1.30-alpine |
+| Testing and code quality | pytest 9.1, pytest-cov, ruff 0.17 (lint + format), Bandit 1.9, pip-audit 2.10, npm audit |
+| Containers | Docker 29 (multi-stage builds, non-root users), Docker Compose |
+| CI/CD and registry | GitHub Actions, GitHub Container Registry (GHCR), images tagged with the git commit SHA |
+| Security scanning | Trivy 0.75 (image gate + SARIF), Gitleaks (secret scan), Bandit (SAST), pip-audit / npm audit (SCA) |
+| Infrastructure as Code | Terraform 1.16, AWS provider 5.100, modules `terraform-aws-modules/vpc` 5.8.1 and `eks` 20.37.1 (EKS 1.31), LocalStack 4.6 for an offline plan |
+| Orchestration | Kubernetes (EKS in the Terraform design; k3s v1.35 via Colima for the local run), Helm 4, Traefik ingress, HPA with metrics-server |
+| GitOps | Argo CD (automated sync, prune, self-heal) |
+| Observability | kube-prometheus-stack (Prometheus Operator, Prometheus, Alertmanager, Grafana 13), ServiceMonitor, PrometheusRule |
+| Tooling | macOS (Apple Silicon), kubectl, AWS CLI v2, Playwright (evidence screenshots) |
+
+---
+
+## 3. Architecture
 
 Runtime (identical topology in Docker Compose and in Kubernetes):
 
@@ -89,11 +119,11 @@ Platform:
 
 ---
 
-## 3. Repository layout
+## 4. Repository layout
 
 ```text
 .
-├── .github/workflows/ci-cd.yml     the pipeline: 5 jobs, see section 8
+├── .github/workflows/ci-cd.yml     the pipeline: 5 jobs, see section 9
 ├── backend/                        FastAPI service
 │   ├── app/                        config.py (pydantic-settings), db.py, models.py, schemas.py, main.py (routes)
 │   ├── alembic/versions/0001_create_expenses.py   the migration that creates the `expenses` table
@@ -113,13 +143,16 @@ Platform:
 ├── security/                       trivy.yaml, .trivyignore, bandit.yaml, .gitleaks.toml
 ├── troubleshooting/                two deliberately broken manifests + the triage runbook
 ├── scripts/                        load-test.sh (HPA demo), capture-evidence.sh + render-terminal.py (evidence)
+├── gitops/                         Argo CD install script, Application manifest and GitOps walkthrough
+├── demo/                           presentation deck (PPTX + PDF) and the recorded demo video
 ├── docs/screenshots/               every capture, indexed in docs/screenshots/README.md
+├── SUBMISSION.md, GRADING.md       the course's submission rules and rubric, copied unchanged
 └── SECURITY.md                     the security gates, why they are configured that way, exceptions policy
 ```
 
 ---
 
-## 4. Running locally
+## 5. Running locally
 
 ### One command (Docker Compose)
 
@@ -173,7 +206,7 @@ The frontend image takes `BACKEND_HOST` (default `expense-tracker-backend`) and 
 
 ---
 
-## 5. API reference
+## 6. API reference
 
 All data endpoints live under `/api`. Full curl session with responses:
 [`m1-api-curl.txt`](docs/screenshots/m1-api-curl.txt) / [`.png`](docs/screenshots/m1-api-curl.png).
@@ -222,7 +255,7 @@ uvicorn, so every start converges the schema. Evidence: [`m1-alembic-migration.p
 
 ---
 
-## 6. Tests and code quality
+## 7. Tests and code quality
 
 ```bash
 cd backend && pytest -v        # 20 passed
@@ -246,7 +279,7 @@ Evidence: [`m2-pytest-v.txt`](docs/screenshots/m2-pytest-v.txt), [`m2-ruff-bandi
 
 ---
 
-## 7. Docker
+## 8. Docker
 
 **`backend/Dockerfile`** – single stage on `python:3.12-slim`. Dependencies are installed first (cached
 layer), then `pip`, `setuptools` and `wheel` are uninstalled: Trivy had flagged CVEs in the libraries pip
@@ -272,7 +305,7 @@ Evidence: [`m4-docker-images.png`](docs/screenshots/m4-docker-images.png),
 
 ---
 
-## 8. CI/CD pipeline
+## 9. CI/CD pipeline
 
 File: [`.github/workflows/ci-cd.yml`](.github/workflows/ci-cd.yml). Triggers: `push` and
 `pull_request` on `main`, plus `workflow_dispatch`.
@@ -298,7 +331,7 @@ security-static ┘
   `KUBE_CONFIG_DATA` secret (base64 of `~/.kube/config`). When the secret is not set it prints the
   exact `helm upgrade --install` command instead of failing, so the pipeline stays green on a fresh
   fork; my local k3s cluster is not reachable from GitHub runners, so that is what happened here and
-  I ran the same command by hand (section 11).
+  I ran the same command by hand (section 12).
 - Run history: the first run [38919310984](https://github.com/om-malviya/expense-tracker-devops/actions/runs/38919310984)
   failed after 29 s in the Gitleaks step – my own `postgresql+psycopg://<user>:<password>@` rule matched
   the documented connection-string example in the repo. Commit `ec416e2` replaced the example with
@@ -320,7 +353,7 @@ Evidence: [`m5-workflow-summary.png`](docs/screenshots/m5-workflow-summary.png),
 
 ---
 
-## 9. Security
+## 10. Security
 
 Everything is described in [`SECURITY.md`](SECURITY.md); the short version:
 
@@ -359,7 +392,7 @@ Evidence: [`m6-trivy-config.png`](docs/screenshots/m6-trivy-config.png),
 
 ---
 
-## 10. Terraform
+## 11. Terraform
 
 [`terraform/`](terraform/README.md) provisions, in `ap-south-1`:
 
@@ -404,7 +437,7 @@ Evidence: [`m7-terraform-init-validate.png`](docs/screenshots/m7-terraform-init-
 
 ---
 
-## 11. Kubernetes + Helm
+## 12. Kubernetes + Helm
 
 I ran the chart on a local **k3s** cluster (Colima VM, single node `colima`, Traefik as the ingress
 controller, metrics-server built in). The same chart targets EKS by switching the values file.
@@ -471,7 +504,35 @@ Evidence: [`m8-namespace.png`](docs/screenshots/m8-namespace.png), [`m8-helm-upg
 
 ---
 
-## 12. Monitoring
+## 13. GitOps with Argo CD
+
+The CI pipeline's deploy job pushes a release with `helm upgrade` when a kubeconfig secret is present.
+Argo CD is the second, pull-based path: the desired state lives in Git, and a controller inside the
+cluster keeps the cluster equal to it.
+
+```text
+ git push (values-gitops.yaml) ──> GitHub main ──> Argo CD polls the repo (every 3 min, or Refresh)
+                                                      │ renders helm/expense-tracker with values-gitops.yaml
+                                                      ▼
+                                       namespace expense-tracker-gitops  ──  automated sync, prune, self-heal
+```
+
+- [`gitops/argocd/install.sh`](gitops/argocd/install.sh) installs Argo CD into the `argocd` namespace.
+- [`gitops/argocd/application.yaml`](gitops/argocd/application.yaml) is the `Application`: source
+  `helm/expense-tracker` on `main` with [`values-gitops.yaml`](helm/expense-tracker/values-gitops.yaml),
+  destination namespace `expense-tracker-gitops`, `syncPolicy.automated` with `prune` and `selfHeal`.
+- A change is a commit: bumping the image tag or `replicaCount` in `values-gitops.yaml` and pushing
+  is the whole deployment. If someone changes the cluster by hand (`kubectl scale`, deleting a pod),
+  Argo CD reports the drift and reverts it.
+
+The walkthrough with exact commands is in [`gitops/README.md`](gitops/README.md).
+Evidence: [`m10-argocd-app-synced.png`](docs/screenshots/m10-argocd-app-synced.png),
+[`m10-argocd-self-heal.png`](docs/screenshots/m10-argocd-self-heal.png),
+[`m10-argocd-ui.png`](docs/screenshots/m10-argocd-ui.png).
+
+---
+
+## 14. Monitoring
 
 - **Metrics endpoint** – `prometheus-fastapi-instrumentator` exposes `/metrics` on the backend:
   `http_requests_total{handler,method,status}` and the `http_request_duration_seconds` histogram
@@ -518,7 +579,7 @@ Evidence: [`m8-namespace.png`](docs/screenshots/m8-namespace.png), [`m8-helm-upg
 
 ---
 
-## 13. Troubleshooting lab
+## 15. Troubleshooting lab
 
 [`troubleshooting/`](troubleshooting/README.md) holds two manifests I break on purpose and the
 runbook I follow (`get pods` -> `describe` -> `logs --previous` -> `get endpoints` -> `describe ingress`):
@@ -534,7 +595,33 @@ Captures: `docs/screenshots/m10-troubleshooting-broken-image.png` and
 
 ---
 
-## 14. Evidence index
+## 16. Known issues and limitations
+
+1. **AWS apply, console and destroy evidence.** The Terraform code is validated and a real
+   `terraform plan` (61 resources) was produced against LocalStack; the `apply` / AWS Console /
+   `destroy` captures depend on running it against a real AWS account (section 11).
+2. **Images are built for amd64 only.** On the Apple Silicon development machine k3s runs them through
+   qemu emulation, which is why p95 latency under the HPA load test was about 1 s. A
+   `docker buildx --platform linux/amd64,linux/arm64` build would remove this; EKS nodes (`t3.medium`)
+   are amd64, so production is unaffected.
+3. **The CI deploy job is skipped without cluster credentials.** It runs `helm lint` and then deploys
+   only when the `KUBE_CONFIG_DATA` secret exists; for the local cluster I deployed with Helm by hand
+   and through Argo CD.
+4. **PostgreSQL runs inside the cluster** as a single-replica StatefulSet with one PVC: no replication,
+   no automated backups. A production setup would use Amazon RDS (the chart supports an external
+   `DATABASE_URL` through `existingSecret`).
+5. **Single-user application without authentication.** Anyone who can reach the API can read and
+   change expenses; adding auth (for example OIDC at the ingress) is out of scope for the capstone.
+6. **No TLS on the local ingress** (`http://expense.local`); `values-prod.yaml` expects TLS from the
+   ingress controller / cert-manager on EKS.
+7. **Unfixed CVEs do not block the pipeline.** Trivy runs with `ignore-unfixed`, so OS packages with no
+   available fix are reported in the SARIF upload but do not fail the gate (policy in `SECURITY.md`).
+8. **The Argo CD image tag is bumped by a commit**, not automatically; an image-updater or a CI step
+   that edits `values-gitops.yaml` would close that loop.
+
+---
+
+## 17. Evidence index
 
 The complete table (every file, one row per rubric criterion) is in
 [`docs/screenshots/README.md`](docs/screenshots/README.md). The key captures per module:
@@ -547,28 +634,36 @@ The complete table (every file, one row per rubric criterion) is in
 | M4 Docker | [`m4-docker-compose-up.png`](docs/screenshots/m4-docker-compose-up.png), [`m4-docker-images.png`](docs/screenshots/m4-docker-images.png), [`m4-non-root.png`](docs/screenshots/m4-non-root.png), [`m4-app-localhost-3000.png`](docs/screenshots/m4-app-localhost-3000.png) |
 | M5 CI/CD | [`m5-actions-run.png`](docs/screenshots/m5-actions-run.png), [`m5-workflow-summary.png`](docs/screenshots/m5-workflow-summary.png), [`m5-ghcr-backend.png`](docs/screenshots/m5-ghcr-backend.png), [`m5-ghcr-frontend.png`](docs/screenshots/m5-ghcr-frontend.png) |
 | M6 Trivy | [`m6-trivy-scan-output.png`](docs/screenshots/m6-trivy-scan-output.png), [`m6-trivy-config.png`](docs/screenshots/m6-trivy-config.png), [`m6-trivy-explanation.txt`](docs/screenshots/m6-trivy-explanation.txt) |
-| M7 Terraform | [`m7-terraform-init-validate.png`](docs/screenshots/m7-terraform-init-validate.png), [`m7-terraform-plan.png`](docs/screenshots/m7-terraform-plan.png), [`m7-terraform-plan-summary.png`](docs/screenshots/m7-terraform-plan-summary.png) – apply/console/destroy not available (section 10) |
+| M7 Terraform | [`m7-terraform-init-validate.png`](docs/screenshots/m7-terraform-init-validate.png), [`m7-terraform-plan.png`](docs/screenshots/m7-terraform-plan.png), [`m7-terraform-plan-summary.png`](docs/screenshots/m7-terraform-plan-summary.png) – apply/console/destroy: see section 11 and section 16 |
 | M8 Kubernetes + Helm | [`m8-kubectl-get-pods.png`](docs/screenshots/m8-kubectl-get-pods.png), [`m8-kubectl-get-svc.png`](docs/screenshots/m8-kubectl-get-svc.png), [`m8-helm-list.png`](docs/screenshots/m8-helm-list.png), [`m8-app-via-ingress.png`](docs/screenshots/m8-app-via-ingress.png), [`m8-hpa.png`](docs/screenshots/m8-hpa.png) |
 | M9 Monitoring | [`m9-curl-metrics.png`](docs/screenshots/m9-curl-metrics.png), [`m9-prometheus-targets.png`](docs/screenshots/m9-prometheus-targets.png), [`m9-promql.png`](docs/screenshots/m9-promql.png), [`m9-grafana-dashboard.png`](docs/screenshots/m9-grafana-dashboard.png) |
-| M10 Documentation | this README, `m10-troubleshooting-*.png` |
+| M10 Presentation + docs | this README, [`demo/presentation.pptx`](demo/presentation.pptx) / [`demo/presentation.pdf`](demo/presentation.pdf), the demo video in [`demo/`](demo/README.md), [`m10-argocd-app-synced.png`](docs/screenshots/m10-argocd-app-synced.png), `m10-troubleshooting-*.png` |
 
-Git: 17 commits by Om Malviya, each describing one change
-([`m3-git-log.txt`](docs/screenshots/m3-git-log.txt) was captured at commit 16; the 17th added the
-LocalStack plan evidence). `.gitignore` excludes `.env`, `__pycache__`, `.venv`, `node_modules`,
+Git: every commit is by Om Malviya and describes one change ([`m3-git-log.txt`](docs/screenshots/m3-git-log.txt)
+shows the history at the time of capture; the live history is on GitHub). `.gitignore` excludes `.env`, `__pycache__`, `.venv`, `node_modules`,
 `dist`, Terraform state and `terraform.tfvars`, verified with `git check-ignore -v`.
 
 ---
 
-## 15. Demo
+## 18. Presentation and demo video
 
-The presentation follows the 15 steps from the course (Application -> API -> Database -> Git -> CI ->
-Docker -> Security -> Registry -> Terraform -> Kubernetes -> Helm -> Ingress -> HPA -> Monitoring ->
-Failure simulation), using the commands documented in the sections above. The live part is: change one line in the frontend, commit,
-push, watch the pipeline go green, and deploy the new SHA with `helm upgrade --install`.
+Everything for the final presentation is in [`demo/`](demo/README.md):
+
+| File | What it is |
+|---|---|
+| [`demo/presentation.pptx`](demo/presentation.pptx) | The slide deck (11 slides): overview, tech stack, architecture, CI/CD, security, Terraform, Kubernetes + Helm, Argo CD, observability, key learnings |
+| [`demo/presentation.pdf`](demo/presentation.pdf) | The same deck as PDF |
+| `demo/expense-tracker-demo.mp4` | The recorded presentation and live walkthrough |
+
+The video follows the order required in [`SUBMISSION.md`](SUBMISSION.md): the slides first, then the
+codebase, a push that triggers the GitHub Actions pipeline end to end, Terraform (`plan`, `apply`
+output and the AWS Console view of the VPC and EKS cluster), the Argo CD application in sync, the
+Kubernetes workloads (`kubectl get pods`, services, ingress), the Prometheus Targets page with the
+application `UP`, and the live Grafana dashboard.
 
 ---
 
-## 16. Lessons learned
+## 19. Lessons learned
 
 These are the things that actually went wrong or surprised me while building this, in the order I hit them.
 
